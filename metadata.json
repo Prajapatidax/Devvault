@@ -1,0 +1,6 @@
+{
+  "name": "DevVault",
+  "description": "A production-ready personal developer workspace to manage projects, secrets, snippets, notes, expenses, deployments, and AI-powered workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

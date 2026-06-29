@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "id": "d910808b-92db-4359-b41b-84c1deb0c290",
+      "email": "daxp1707@gmail.com",
+      "passwordHash": "a2da05399e7cfa07ebe192affc4e5ec3:a1c8eac73cbc72ee55fff7e08a0352b931a63c0bc17ce16a436f0aab9bda862f41b5a31372d8e5ba36044f257791e7a165aebfbcd76c2d202ff432628bb0dff6",
+      "name": "dax",
+      "createdAt": "2026-06-29T13:08:10.858Z",
+      "updatedAt": "2026-06-29T13:08:10.858Z"
+    }
+  ],
+  "projects": [],
+  "secrets": [],
+  "snippets": [],
+  "notes": [],
+  "expenses": [],
+  "repositories": [],
+  "bugs": [],
+  "deployments": []
+}
