@@ -2,7 +2,8 @@
 
 DevVault is a **local-first, secure developer portal** designed to centralize and streamline your software engineering workflows. It provides a single local control panel to manage projects, secure secrets, organize snippets, document databases, track project expenses, monitor bugs, manage deployments, and utilize AI assistance—all stored securely on your local disk.
 
-> ℹ️ **Design Philosophy**: DevVault is built with security and convenience in mind. Your source code repositories, API credentials, and financial logs never leave your personal computer.
+> [!NOTE]
+> **Design Philosophy**: DevVault is built with security and convenience in mind. Your source code repositories, API credentials, and financial logs never leave your personal computer. Everything runs locally on your machine.
 
 ---
 
@@ -19,6 +20,7 @@ DevVault is a **local-first, secure developer portal** designed to centralize an
 * **Google Gemini API Key**: Required for AI Assistant and Documentation Auto-Generation capabilities.
 
 ### ⚙️ Installation & Configuration
+
 1. Clone or copy this workspace to your local directory.
 2. Open your terminal in the directory and install all node packages:
    ```bash
@@ -29,7 +31,7 @@ DevVault is a **local-first, secure developer portal** designed to centralize an
      ```bash
      cp .env.example .env
      ```
-   * Open `.env` and fill in your variables:
+   * Open the newly created `.env` file and fill in your variables:
      ```env
      PORT=3000
      NODE_ENV=development
@@ -38,24 +40,134 @@ DevVault is a **local-first, secure developer portal** designed to centralize an
      GEMINI_API_KEY=your-gemini-api-key-here
      ```
 
+> [!IMPORTANT]
+> Make sure `ENCRYPTION_KEY` is a secure 32-character key. This key is used to encrypt and decrypt all your sensitive project credentials and secrets locally. Keep it safe!
+
 ### 🏃 Running the Application
 
-* **Start in Development Mode**:
-  Runs the server with Vite middleware integration. Supports Hot Module Replacement (HMR) and automatic reloading:
+* **Start in Development Mode** (runs server with Vite middleware support, HMR, and auto-reload):
   ```bash
   npm run dev
   ```
-  After launching, open your browser and navigate to: **[http://localhost:3000](http://localhost:3000)**.
+  After starting, open your browser and navigate to: **[http://localhost:3000](http://localhost:3000)**.
 
-* **Build and Run for Production**:
-  Compiles the React application into static assets and bundles the Express API for optimal performance:
+* **Build and Run for Production** (compiles front-end and packages server code):
   ```bash
-  # Clean old builds and build frontend/backend bundles
   npm run build
-  
-  # Start the compiled production server
   npm start
   ```
+
+---
+
+## 📖 Step-by-Step Usage Guide
+
+Below is a detailed walkthrough of how to set up, initialize, and use each module of DevVault.
+
+### 🔐 1. Workspace Initialization & Login
+1. When you first launch the app, you will be presented with the **Auth Screen**.
+2. If this is your first run, toggle to **Initialize Workspace**.
+3. Fill in the fields:
+   * **Full Name**: Enter your name (e.g., `test` or your own name).
+   * **Email Address**: Enter your local account email (e.g., `test@example.com`).
+   * **Master Decrypt Key**: Choose a secure master password. This password hashes into the auth system and authorizes your local JWT sessions.
+4. Click **Provision Vault & Begin** to create the workspace.
+5. In the future, log in via the **Sign In** tab using the same email and Master Decrypt Key.
+
+---
+
+### 📂 2. Managing Projects
+The **Project Manager** acts as the command center for your applications.
+1. Click **Projects** in the sidebar.
+2. To add a project, click the **+ New Project** button.
+3. Fill in project details:
+   * **Project Name** & **Description**.
+   * **Development Status** (Planning, In Progress, Paused, Completed).
+   * **Priority Tier** (Low, Medium, High, Critical).
+   * **Tech Stack** (add tags like React, Node.js, SQLite).
+   * **Repository & URL links** (GitHub Repository, Live URL).
+   * **Database Specs & Domain**.
+   * **Environment Secrets Configuration**: Write keys in a JSON format. These will be encrypted automatically.
+4. Click **Save Project**.
+
+---
+
+### 🔑 3. Managing Secrets Securely
+Store API keys, credentials, or client secrets in the **Secrets Manager**.
+1. Navigate to **Secrets** in the sidebar.
+2. Create folders to categorize your secrets (e.g., `Production`, `Staging`, `General`).
+3. Click **+ Add Secret**.
+4. Define:
+   * **Secret Label** (e.g., `Stripe Sandbox Key`).
+   * **Key Name** (e.g., `STRIPE_SECRET_KEY`).
+   * **Value** (e.g., `sk_test_...`).
+   * **Folder** classification.
+5. Once saved, values are stored in `db.json` encrypted with **AES-256-CBC**.
+6. Hover and click the **Eye icon** next to any secret to decrypt and reveal it temporarily.
+
+---
+
+### 📝 4. Snippet Library
+Save and organize reusable boilerplate codes, utilities, or scripts.
+1. Navigate to **Snippets**.
+2. Click **+ New Snippet**.
+3. Specify:
+   * **Title** (e.g., `Axios Client Instance`).
+   * **Language** (e.g., `javascript`, `typescript`, `python`, `sql`).
+   * **Code Content** and optional **Description/Tags**.
+4. Use the **Search bar** to quickly filter by title, code terms, or language tag.
+5. Click the copy icon to instantly copy snippets to your clipboard.
+
+---
+
+### ✍️ 5. Markdown Note Taker
+Keep architectural notes, specifications, or todo lists in raw Markdown.
+1. Go to **Notes**.
+2. Select an existing note or click **+ New Note**.
+3. Write your documentation in the text editor.
+4. Toggle the **Preview** tab to see your rendered markdown in real-time.
+5. Categorize notes with **Tags** (e.g., `General`, `Sprint`, `Database`) for quick filtering.
+
+---
+
+### 🤖 6. AI Assistant & Documentation Generator
+Utilize local context powered by Google's Gemini models.
+* **AIAssistant**:
+  1. Open the **AI Assistant** tab.
+  2. Ask questions about your code, debug stack traces, or draft configurations.
+  3. You can reference specific projects or secrets in the chat context.
+* **Auto-Documentation Generator**:
+  1. Navigate to **Doc Generator**.
+  2. Choose a template (e.g., `README.md`, `API Guide`, `Database Schema`).
+  3. Select the target project to import its tech stack, databases, and general details.
+  4. Write a custom instruction prompt if you want specific sections emphasized.
+  5. Click **Generate Documentation** to get a formatted Markdown document ready to save or export.
+
+---
+
+### 💸 7. Project Expense & Budget Tracker
+Monitor SaaS and server bills associated with your projects.
+1. Navigate to **Expenses**.
+2. Click **+ Add Subscription**.
+3. Enter:
+   * **Subscription Name** (e.g., `Vercel Pro Team`).
+   * **Cost** & **Billing Period** (Monthly, Yearly).
+   * **Renewal Date** & associated **Project**.
+4. The dashboard will automatically calculate your aggregate **Monthly Run Rate** and **Yearly Hosting Budget** to help you keep server costs under control.
+
+---
+
+### 🐛 8. Bug & Ticket Tracker
+Log bugs and coordinate issues.
+1. Go to **Bug Tracker**.
+2. Click **+ Add Ticket**.
+3. Add a title, choose the associated project, set priority, and describe the bug details.
+4. Toggle the status between **Open**, **In-Progress**, and **Resolved** as you resolve the issue.
+
+---
+
+### 🚀 9. Deployments & GitHub Integration
+* **GitHub Sync**: Connect to your repo paths to quickly pull open branch names, star counts, commit logs, and issues.
+* **Deployment Board**: Register your service endpoints (backend API server, front-end Vercel pages, staging URLs) along with cloud hosts (Render, AWS EC2, VPS) to keep all status urls readily accessible.
 
 ---
 
@@ -76,7 +188,7 @@ DevVault is a **local-first, secure developer portal** designed to centralize an
 
 ## 🔑 Security & Safety Features
 
-DevVault is built from the ground up to protect your sensitive credentials. 
+DevVault is built from the ground up to protect your sensitive credentials:
 
 * **AES-256-CBC Encryption**: All keys, passwords, and tokens stored inside the Secrets Manager or Projects lists are encrypted with random IVs before being saved to the local file database.
 * **PBKDF2 Password Hashing**: User authentication is protected with PBKDF2 hashing, using 10,000 iterations and cryptographically random salts.
@@ -84,40 +196,3 @@ DevVault is built from the ground up to protect your sensitive credentials.
 * **Sanitized Outputs**: The server never returns plain secrets in list responses. Decryption only happens on-demand via authenticated endpoints.
 
 For a detailed analysis of our security protocols, see **[SECURITY.md](file:///d:/DAX/Devvault/SECURITY.md)**.
-
----
-
-## 🗂️ Core Functional Modules
-
-### 1. 📊 Centralized Dashboard
-A unified interface displaying real-time metrics, project progression trackers, bug resolution counts, code snippet language counts, and active hosting budget forecasts.
-
-### 2. 📂 Project Workspace Manager
-Allows developers to monitor projects, track status (Planning, In-Progress, Paused, Completed), priority tiers, deadliness, domains, databases, repository URLs, and encrypted API configurations.
-
-### 3. 🔐 Secrets Manager
-A secure storage container for developer credentials (AWS, Stripe, Firebase keys). Organizes values into folders (e.g., Production, Staging, General) and hides plain values behind a secure, on-demand decryption click handler.
-
-### 4. 📝 Code Snippet Library
-Save, favorite, search, and categorize common code blocks and scripts across multiple programming languages (JavaScript, Python, SQL, CSS, etc.) with built-in copy controls.
-
-### 5. ✍️ Markdown Note Taker
-A full-featured Markdown workspace. Take developer notes, write schemas, design API drafts, and preview the rendering with real-time editing.
-
-### 6. 💸 Project Expense Tracker
-Track hosting bills, subscription cycles, domains, SSL licenses, and cloud budgets. Automatically projects monthly and yearly cost run-rates to prevent billing surprises.
-
-### 7. 🐙 GitHub Repository Tracker
-Integrates with the GitHub API to monitor repository stars, branches, commit totals, active issues, open pull requests, and latest release tags.
-
-### 8. 🐛 Bug Tracker
-Log, prioritize, and associate codebase issues and errors directly with specific projects to manage ticket queues locally.
-
-### 9. 🚀 Deployment Manager
-Document service links, cloud providers (Render, Railway, Vercel, VPS), deployment notes, and frontend/backend URLs.
-
-### 10. 🤖 DevVault AI Assistant
-An interactive chatbot powered by Gemini 3.5 Flash. It references context-specific project variables or selected code snippets to guide troubleshooting and answer complex API questions.
-
-### 11. 📄 Automated Documentation Generator
-Instantly generates standard Markdown documents (`README.md`, REST API Reference manuals, Architectural schematics, or Onboarding instructions) using project stack parameters and custom prompts.

@@ -114,7 +114,7 @@ export const AuthPage: React.FC = () => {
                   label="FULL NAME"
                   id="reg-name"
                   type="text"
-                  placeholder="Linus Torvalds"
+                  placeholder="test"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   icon={<User className="h-4 w-4" />}
@@ -127,7 +127,7 @@ export const AuthPage: React.FC = () => {
               label="EMAIL ADDRESS"
               id="auth-email"
               type="email"
-              placeholder="linus@git.org"
+              placeholder="test@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               icon={<Mail className="h-4 w-4" />}
