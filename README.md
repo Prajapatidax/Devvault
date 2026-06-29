@@ -1,9 +1,8 @@
 # 🛠️ DevVault: Unified Developer Workspace
 
-DevVault is a **local-first, secure developer portal** designed to centralize and streamline your software engineering workflows. It provides a single local control panel to manage projects, secure secrets, organize snippets, document databases, track project expenses, monitor bugs, manage deployments, and utilize AI assistance—all stored securely on your local disk.
+DevVault is a **local-first, secure developer portal** designed to centralize and streamline your software engineering workflows. It provides a single local control panel to manage projects, secure secrets, organize snippets, document databases, track project expenses, monitor bugs, manage deployments, and utilize AI assistance—stored securely in PostgreSQL (Supabase) with a local file fallback.
 
-> [!NOTE]
-> **Design Philosophy**: DevVault is built with security and convenience in mind. Your source code repositories, API credentials, and financial logs never leave your personal computer. Everything runs locally on your machine.
+> **Design Philosophy**: DevVault is built with security and convenience in mind. Your data is stored securely in your dedicated PostgreSQL (Supabase) database, with a zero-config local JSON file backup option for easy local development.
 
 ---
 
@@ -38,6 +37,7 @@ DevVault is a **local-first, secure developer portal** designed to centralize an
      JWT_SECRET=your-random-jwt-signing-secret
      ENCRYPTION_KEY=your-32-byte-hex-or-string-aes-key
      GEMINI_API_KEY=your-gemini-api-key-here
+     DATABASE_URL=postgresql://postgres:[password]@[host]:[port]/[database] # Optional: omit to fallback to local db.json
      ```
 
 > [!IMPORTANT]
@@ -101,7 +101,7 @@ Store API keys, credentials, or client secrets in the **Secrets Manager**.
    * **Key Name** (e.g., `STRIPE_SECRET_KEY`).
    * **Value** (e.g., `sk_test_...`).
    * **Folder** classification.
-5. Once saved, values are stored in `db.json` encrypted with **AES-256-CBC**.
+5. Once saved, values are stored in the database encrypted with **AES-256-CBC**.
 6. Hover and click the **Eye icon** next to any secret to decrypt and reveal it temporarily.
 
 ---
@@ -181,7 +181,7 @@ Log bugs and coordinate issues.
 | **Icons** | Lucide React | Clean, scalable visual symbols |
 | **Backend** | Node.js, Express, tsx | API routers, auth middleware, and filesystem controllers |
 | **AI Engine** | Google GenAI SDK (`@google/genai`) | Drives DevVault AI and documentation generators |
-| **Database** | Synchronous Local JSON file (`db.json`) | Single-file persistence with low latency |
+| **Database** | PostgreSQL (Supabase) / JSON Fallback | Robust PostgreSQL storage with a zero-config local JSON file fallback |
 | **Security** | Crypto (AES-256-CBC, PBKDF2) | Protects API credentials, secrets, and session safety |
 
 ---

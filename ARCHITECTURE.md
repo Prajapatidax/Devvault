@@ -25,11 +25,12 @@ DevVault is a unified developer workstation workspace built with a **decoupled C
                   |  - Google GenAI SDK               |
                   +-----------------+-----------------+
                                     |
-                              File I/O CRUD
+                       SQL Queries (pg Pool) / JSON
                                     v
                   +-----------------+-----------------+
-                  |         Database Disk             |
-                  |  - server/db.json (JSON store)    |
+                  |        Database Storage           |
+                  |  - PostgreSQL (Supabase / local)  |
+                  |  - server/db.json (JSON fallback) |
                   +-----------------------------------+
 ```
 
@@ -59,8 +60,8 @@ The server initialization routine in [server.ts](file:///d:/DAX/Devvault/server.
 ├── dist/                   # Production compiled assets (Vite frontend + Server bundles)
 ├── server/                 # Express backend server logic
 │   ├── auth.ts             # Password hashing and custom JWT handlers
-│   ├── db.json             # Local database file storing all records (Git-ignored in prod)
-│   ├── db.ts               # Local JSON Database controller, CRUD methods, and AES helpers
+│   ├── db.json             # Local JSON fallback file storing all records
+│   ├── db.ts               # Database controller (PostgreSQL Pool + JSON fallback)
 │   ├── routes.ts           # REST API endpoints (Auth, Projects, Secrets, AI, Tracker, etc.)
 │   └── types.ts            # TypeScript interfaces for database structures
 ├── src/                    # Vite + React frontend client application
@@ -88,10 +89,10 @@ The server initialization routine in [server.ts](file:///d:/DAX/Devvault/server.
 
 ## 💾 Database Schema & CRUD layer
 
-DevVault utilizes a local JSON-based transactional datastore managed in [db.ts](file:///d:/DAX/Devvault/server/db.ts). 
+DevVault supports storing all data in a **PostgreSQL (Supabase) database** using the `pg` client driver. It automatically sets up schema tables and indexes upon connecting. If no `DATABASE_URL` is configured, it falls back to a local JSON-based transactional datastore in `server/db.json`.
 
 ### 1. Database Schema (`server/types.ts`)
-The typescript definitions for the database structure represent an RDBMS-like structure inside a single JSON object. The database root has the following arrays:
+The typescript definitions for the database structure represent an RDBMS-like structure. The database root contains tables for:
 * **`users`**: User records containing IDs, emails, and hashed passwords.
 * **`projects`**: Custom projects with tech-stack arrays, deadline parameters, and encrypted credential keys.
 * **`secrets`**: Custom user credentials containing labels, folder domains, and encrypted password/key values.
@@ -102,10 +103,11 @@ The typescript definitions for the database structure represent an RDBMS-like st
 * **`bugs`**: Tracked system bug items tied directly to project IDs.
 * **`deployments`**: Server endpoints, platforms (Vercel, Render, Railway), and frontend/backend URLs.
 
-### 2. Transactional Operations
-The database class `DatabaseManager` handles reads and writes synchronously:
-* **Cache Management**: A memory cache is used to speed up queries. If the cache exists, queries bypass disk reads.
-* **Write Sync**: Every database mutation (inserts, updates, or deletes) triggers a synchronous `fs.writeFileSync` to write the updated JSON cache to the filesystem in `server/db.json`, preventing memory drift.
+### 2. Database Connections & Operations
+The database class `DatabaseManager` handles reads and writes asynchronously:
+* **PostgreSQL Connection**: A connection pool (`pg.Pool`) manages connections to your remote Supabase instance or local Postgres. SQL queries are executed with type-safe mapping from snake_case database columns to camelCase types.
+* **Automated Migrations**: Upon start, the server checks for table existence and creates them if missing. It also performs an automated migration of any local `db.json` user profiles/records into PostgreSQL if the database is detected to be empty.
+* **Local JSON Fallback Cache**: If no `DATABASE_URL` environment variable is defined, the server stores records in memory and synchronizes mutations to the filesystem in `server/db.json`.
 
 ---
 

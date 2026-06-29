@@ -21,7 +21,7 @@ User passwords are safe against offline dictionary and brute-force attacks due t
 * **Salt Generation**: A cryptographically secure 16-byte random salt is generated using `crypto.randomBytes(16)`.
 * **Algorithm**: **PBKDF2** (Password-Based Key Derivation Function 2) configured with **SHA-256** digest.
 * **Work Factor**: Run for **10,000 iterations** to derive a 64-byte key length.
-* **Storage**: The database stores the combined payload as `salt:hash` inside `server/db.json` under the `users` collection.
+* **Storage**: The database stores the combined payload as `salt:hash` inside the `users` database table.
 
 ```typescript
 // From server/auth.ts
@@ -40,7 +40,7 @@ export function hashPassword(password: string): string {
 Secrets and Project API Keys are stored using the standard **AES-256-CBC** symmetric encryption algorithm in [db.ts](file:///d:/DAX/Devvault/server/db.ts#L61-L98).
 * **Key Derivation**: A 32-byte key is derived by feeding the `ENCRYPTION_KEY` environment variable (or a development fallback) through `SHA-256`.
 * **Initialization Vector (IV)**: A unique, randomized 16-byte IV (`crypto.randomBytes(16)`) is created for **every single encryption action**. This ensures that encrypting the same secret value twice results in completely different ciphertexts, preventing frequency analysis.
-* **Storage Format**: Encrypted values are stored in the file system as `${IV_in_hex}:${Ciphertext_in_hex}`.
+* **Storage Format**: Encrypted values are stored in the database as `${IV_in_hex}:${Ciphertext_in_hex}`.
 
 ```typescript
 // From server/db.ts
@@ -94,30 +94,30 @@ To view a secret, the front-end makes an explicit `POST /api/secrets/reveal/:id`
 
 ---
 
-## 💻 Local-First Storage Topology
+## 💾 Secure Database Storage Topology
 
 ```
-+-----------------------------------------------------------+
-|                      User's Machine                       |
-|                                                           |
-|   +-----------------------+       +-------------------+   |
-|   |                       |       |                   |   |
-|   |  Vite/React Frontend  | <---> | Express Backend   |   |
-|   |  (Runs in Browser)    |       | (Runs on Port 3000|   |
-|   |                       |       |                   |   |
-|   +-----------------------+       +---------+---------+   |
-|                                             |             |
-|                                       Writes / Reads      |
-|                                             v             |
-|                                   +-------------------+   |
-|                                   |  Local disk storage|  |
-|                                   |  server/db.json   |   |
-|                                   |                   |   |
-|                                   | (Credentials &    |   |
-|                                   |  Secrets AES-     |   |
-|                                   |  Encrypted)       |   |
-|                                   +-------------------+   |
-+-----------------------------------------------------------+
++-------------------------------------------------------------+
+|                        User's Machine                       |
+|                                                             |
+|   +---------------------+         +--------------------+    |
+|   | Vite/React Frontend |  <--->  |  Express Backend   |    |
+|   |  (Runs in Browser)  |         | (Runs on Port 3000)|    |
+|   +---------------------+         +----------+---------+    |
+|                                              |              |
+|                                      Queries / Updates      |
+|                                              v              |
+|   +------------------------------------------+----------+   |
+|   |                 Database Storage                    |   |
+|   |                                                     |   |
+|   |  [PostgreSQL (Supabase Cloud)]                      |   |
+|   |  - Remote connection pool (pg.Pool)                 |   |
+|   |  - Fully encrypted fields (AES-256-CBC at rest)      |   |
+|   |                                                     |   |
+|   |  [Local Fallback (db.json)]                         |   |
+|   |  - JSON backup file on local disk                   |   |
+|   +-----------------------------------------------------+   |
++-------------------------------------------------------------+
 ```
 
 * **No Cloud Middleware**: Your secrets never touch servers hosted by DevVault creators. There are no tracking scripts, no Segment, no Google Analytics, and no Mixpanel.

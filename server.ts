@@ -28,6 +28,14 @@ async function startServer() {
   // API Router Mount
   app.use("/api", apiRouter);
 
+  // API JSON Error Handler
+  app.use("/api", (err: any, req: any, res: any, next: any) => {
+    console.error("API Router Error:", err);
+    res.status(err.status || 500).json({
+      error: err.message || "Internal Server Error"
+    });
+  });
+
   // Serve static assets or mount Vite dev server
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in DEVELOPMENT mode with Vite Middleware...");
