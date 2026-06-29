@@ -149,6 +149,9 @@ class DatabaseManager {
 
         // Setup tables
         await this.runMigrations();
+
+        // Migrate local JSON data if PostgreSQL database is empty
+        await this.migrateJsonToPostgresIfNeeded();
       } catch (error) {
         console.error("Failed to connect to PostgreSQL. Falling back to local db.json", error);
         this.usePostgres = false;
@@ -300,6 +303,28 @@ class DatabaseManager {
       await this.pool.query(query);
     }
     console.log("Database migrations completed successfully.");
+  }
+
+  private async migrateJsonToPostgresIfNeeded(): Promise<void> {
+    if (!this.pool || !this.usePostgres) return;
+    try {
+      const userCheck = await this.pool.query("SELECT COUNT(*) FROM users");
+      const userCount = parseInt(userCheck.rows[0].count, 10);
+      
+      if (userCount === 0 && fs.existsSync(DB_FILE)) {
+        const localData = this.readJson();
+        const hasData = (localData.users && localData.users.length > 0) ||
+                        (localData.projects && localData.projects.length > 0);
+        
+        if (hasData) {
+          console.log("Local db.json has existing data but PostgreSQL is empty. Migrating data to PostgreSQL...");
+          await this.importRawData(localData);
+          console.log("Data migration to PostgreSQL completed successfully.");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to migrate data from local db.json to PostgreSQL:", error);
+    }
   }
 
   // --- JSON DATABASE FALLBACK METHODS ---
