@@ -8,13 +8,18 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { apiRouter } from "./server/routes";
+import { dbManager } from "./server/db";
 
 // Load environment variables from .env
 dotenv.config();
 
 async function startServer() {
+  // Initialize database (Postgres or local JSON fallback)
+  await dbManager.initialize();
+
   const app = express();
   const PORT = 3000;
+
 
   // Global Middlewares
   app.use(express.json({ limit: "50mb" }));
