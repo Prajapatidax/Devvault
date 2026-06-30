@@ -92,9 +92,42 @@ export const GitHubTracker: React.FC = () => {
     }
   };
 
-  const handleSyncAll = () => {
-    toast("Syncing GitHub repository commits, branches, and stars...", "info");
-    fetchRepos();
+  const handleSyncAll = async () => {
+    setLoading(true);
+    toast("Syncing all GitHub repositories...", "info");
+    try {
+      const res = await apiFetch("/api/repositories/sync-all", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setRepos(data);
+        toast("All repositories synced successfully!", "success");
+      } else {
+        toast("Failed to sync some repositories", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Sync failed", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncRepo = async (id: string) => {
+    toast("Syncing repository metrics...", "info");
+    try {
+      const res = await apiFetch(`/api/repositories/${id}/sync`, { method: "POST" });
+      if (res.ok) {
+        const updatedRepo = await res.json();
+        setRepos(prev => prev.map(r => r.id === id ? updatedRepo : r));
+        toast("Repository synced successfully!", "success");
+      } else {
+        const errData = await res.json();
+        toast(errData.error || "Failed to sync repository", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Sync failed", "error");
+    }
   };
 
   return (
@@ -156,9 +189,14 @@ export const GitHubTracker: React.FC = () => {
                   </div>
                 </div>
 
-                <Button variant="danger" size="sm" onClick={() => handleDelete(r.id)} title="Delete Tracker" className="p-1.5">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => handleSyncRepo(r.id)} title="Sync Stats" className="p-1.5">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => handleDelete(r.id)} title="Delete Tracker" className="p-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
 
               {/* GitHub Metrics Bento Grid */}

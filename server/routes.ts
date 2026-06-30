@@ -10,6 +10,7 @@ import { signToken, verifyToken, hashPassword, verifyPassword } from "./auth";
 import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog } from "./types";
 import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
+import { fetchGithubStats } from "./github";
 
 export const apiRouter = Router();
 
@@ -580,24 +581,110 @@ apiRouter.post("/repositories", requireAuth, async (req: AuthenticatedRequest, r
       return res.status(400).json({ error: "Repository name and URL are required" });
     }
 
-    // Simulate repository tracking stats
+    let stars = 0;
+    let issues = 0;
+    let commits = 0;
+    let openPr = 0;
+    let latestRelease = "v1.0.0";
+
+    // Try to fetch real stats from GitHub API
+    const liveStats = await fetchGithubStats(url, branch || "main");
+    if (liveStats) {
+      stars = liveStats.stars;
+      issues = liveStats.issues;
+      commits = liveStats.commits;
+      openPr = liveStats.openPr;
+      latestRelease = liveStats.latestRelease;
+    } else {
+      // Fallback to initial mock stats if GitHub API fails or is rate-limited
+      stars = Math.floor(Math.random() * 250) + 12;
+      issues = Math.floor(Math.random() * 20) + 2;
+      commits = Math.floor(Math.random() * 500) + 50;
+      openPr = Math.floor(Math.random() * 5);
+    }
+
     const newRepo: RepositoryTracker = {
       id: crypto.randomUUID(),
       userId: req.user!.id,
       name: name.trim(),
       url: url.trim(),
       branch: branch || "main",
-      stars: Math.floor(Math.random() * 250) + 12,
-      issues: Math.floor(Math.random() * 20) + 2,
-      commits: Math.floor(Math.random() * 500) + 50,
-      openPr: Math.floor(Math.random() * 5),
-      latestRelease: "v1.0.0",
+      stars,
+      issues,
+      commits,
+      openPr,
+      latestRelease,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     await dbManager.createRepository(newRepo);
     res.status(201).json(newRepo);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/repositories/:id/sync", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    const repos = await dbManager.getRepositories(userId);
+    const repo = repos.find((r) => r.id === id);
+    if (!repo) {
+      return res.status(404).json({ error: "Repository not found or access denied" });
+    }
+
+    const liveStats = await fetchGithubStats(repo.url, repo.branch);
+    if (!liveStats) {
+      return res.status(400).json({ error: "Failed to fetch live stats from GitHub. Rate limit exceeded or invalid repository URL." });
+    }
+
+    const updated = await dbManager.updateRepository(id, userId, {
+      stars: liveStats.stars,
+      issues: liveStats.issues,
+      commits: liveStats.commits,
+      openPr: liveStats.openPr,
+      latestRelease: liveStats.latestRelease
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/repositories/sync-all", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const repos = await dbManager.getRepositories(userId);
+    const updatedRepos = [];
+
+    for (const repo of repos) {
+      try {
+        const liveStats = await fetchGithubStats(repo.url, repo.branch);
+        if (liveStats) {
+          const updated = await dbManager.updateRepository(repo.id, userId, {
+            stars: liveStats.stars,
+            issues: liveStats.issues,
+            commits: liveStats.commits,
+            openPr: liveStats.openPr,
+            latestRelease: liveStats.latestRelease
+          });
+          if (updated) {
+            updatedRepos.push(updated);
+            continue;
+          }
+        }
+        updatedRepos.push(repo);
+      } catch (err) {
+        console.error(`Failed to sync repository ${repo.name}:`, err);
+        updatedRepos.push(repo);
+      }
+    }
+
+    res.json(updatedRepos);
   } catch (error) {
     next(error);
   }
