@@ -890,6 +890,71 @@ apiRouter.delete("/deployments/:id", requireAuth, async (req: AuthenticatedReque
 // ==========================================
 // AI ASSISTANT ENDPOINT (MODULE 8)
 // ==========================================
+async function generateContentWithRetryAndFallback(
+  ai: GoogleGenAI,
+  options: {
+    contents: string;
+    config: {
+      systemInstruction?: string;
+      temperature?: number;
+    };
+  }
+) {
+  const models = [
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
+  ];
+  
+  let lastError: any = null;
+
+  for (const model of models) {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempting AI generation with model ${model} (attempt ${attempt}/${maxRetries})...`);
+        const result = await ai.models.generateContent({
+          model: model,
+          contents: options.contents,
+          config: options.config,
+        });
+        console.log(`Successfully generated content using model ${model}`);
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Error with model ${model} on attempt ${attempt}:`, error);
+
+        const errorMessage = error?.message || String(error);
+        const errorStatus = error?.status || (error?.error?.status) || "";
+        const errorCode = error?.code || (error?.error?.code) || 0;
+
+        const isRateLimit = errorCode === 429 || errorStatus === "RESOURCE_EXHAUSTED" || errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED");
+        const isUnavailable = errorCode === 503 || errorStatus === "UNAVAILABLE" || errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE");
+        
+        const isTransient = isRateLimit || isUnavailable || errorMessage.includes("fetch failed") || errorMessage.includes("timeout");
+
+        if (!isTransient) {
+          const isAuthError = errorCode === 401 || errorCode === 403 || errorStatus === "PERMISSION_DENIED" || errorStatus === "UNAUTHENTICATED";
+          if (isAuthError) {
+            throw error;
+          }
+          break;
+        }
+
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.log(`Waiting ${Math.round(delay)}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+    console.warn(`Model ${model} failed all attempts. Trying next fallback model...`);
+  }
+
+  throw lastError || new Error("All generative AI models failed to respond.");
+}
+
 apiRouter.post("/ai/chat", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { message, contextType, contextData } = req.body;
 
@@ -922,8 +987,7 @@ apiRouter.post("/ai/chat", requireAuth, async (req: AuthenticatedRequest, res: R
       systemInstruction += `\n\nContext: The user is analyzing this snippet of code (language: ${contextData.language || "unknown"}):\n\`\`\`\n${contextData.code}\n\`\`\``;
     }
 
-    const result = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const result = await generateContentWithRetryAndFallback(ai, {
       contents: finalPrompt,
       config: {
         systemInstruction,
