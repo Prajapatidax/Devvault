@@ -31,7 +31,7 @@ export const AuthPage: React.FC = () => {
     try {
       if (isLogin) {
         await login(email, password);
-        toast("Welcome back to Artificial!", "success");
+        toast("Welcome back to DevVault!", "success");
       } else {
         await register(email, password, name);
         toast("Workspace successfully created!", "success");
@@ -61,7 +61,7 @@ export const AuthPage: React.FC = () => {
             <ArtificialLogo className="h-10 w-16" />
           </div>
           <h1 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 tracking-tight font-sans">
-            Artificial
+            DevVault
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 font-mono mt-1 select-none">
             One place for everything a developer needs.

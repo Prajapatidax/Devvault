@@ -195,12 +195,12 @@ function DevVaultWorkspace() {
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-2 md:p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
+    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
       {/* Sunbeam gradient top-center */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[350px] bg-gradient-to-b from-orange-500/10 via-amber-400/5 to-transparent blur-[120px] rounded-full pointer-events-none z-0" />
 
       {/* Main outer border frame */}
-      <div className="flex-1 flex h-full w-full overflow-hidden border-2 md:border-[5px] border-brand-500 rounded-[16px] md:rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
+      <div className="flex-1 flex h-full w-full overflow-hidden border-[5px] border-brand-500 rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
         {/* 1. SIDEBAR NAVIGATION */}
         <aside className="w-64 bg-white/80 dark:bg-zinc-950/60 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between shrink-0 backdrop-blur-md transition-colors duration-300 select-none">
           <div className="flex flex-col overflow-hidden">
@@ -210,7 +210,7 @@ function DevVaultWorkspace() {
                 <ArtificialLogo className="h-7 w-12" />
               </div>
               <div>
-                <span className="font-bold text-sm tracking-tight text-zinc-850 dark:text-white">Artificial</span>
+                <span className="font-bold text-sm tracking-tight text-zinc-850 dark:text-white">DevVault</span>
                 <span className="block text-[10px] text-zinc-500 font-mono">v1.0.0-beta</span>
               </div>
             </div>
@@ -328,7 +328,7 @@ function DevVaultWorkspace() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/30 backdrop-blur-md shadow-sm">
                     <div>
                       <h2 className="text-xl font-bold text-zinc-800 dark:text-white tracking-tight flex items-center gap-2">
-                        Welcome to Artificial, <span className="text-brand-500">{user?.name}</span>
+                        Welcome to DevVault, <span className="text-brand-500">{user?.name}</span>
                         <Sparkles className="h-4 w-4 text-brand-500 animate-pulse" />
                       </h2>
                       <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1">
