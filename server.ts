@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
+import dns from "dns";
 // Load environment variables from .env immediately before importing other modules
 dotenv.config();
+
+// Force IPv4 DNS resolution first to avoid ENETUNREACH errors on systems/networks with no IPv6 routing (e.g., when connecting to Supabase/Neon/etc.)
+dns.setDefaultResultOrder("ipv4first");
 
 import express from "express";
 import path from "path";
