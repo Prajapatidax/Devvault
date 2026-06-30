@@ -7,6 +7,9 @@ import { dbManager } from "./db";
 import crypto from "crypto";
 import { hashPassword } from "./auth";
 import { Project, ProjectMember, Invitation, User, ProjectStatus, ProjectPriority } from "./types";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 async function runTests() {
   console.log("=== STARTING TEAM COLLABORATION INTEGRATION TESTS ===");

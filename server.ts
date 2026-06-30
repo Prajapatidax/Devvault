@@ -1,17 +1,12 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+import dotenv from "dotenv";
+// Load environment variables from .env immediately before importing other modules
+dotenv.config();
 
 import express from "express";
 import path from "path";
-import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { apiRouter } from "./server/routes";
 import { dbManager } from "./server/db";
-
-// Load environment variables from .env
-dotenv.config();
 
 async function startServer() {
   // Initialize database (Postgres or local JSON fallback)
