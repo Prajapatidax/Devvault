@@ -7,14 +7,75 @@
       "name": "dax",
       "createdAt": "2026-06-29T13:08:10.858Z",
       "updatedAt": "2026-06-29T13:08:10.858Z"
+    },
+    {
+      "id": "test-user-a-1782835882371",
+      "email": "usera-1782835882371@example.com",
+      "name": "User Alice",
+      "passwordHash": "1882d145ce9c1b2b43b69fe30f875e0b:9e37f63911cad6c15361933fbfe027a5d2a5afcafc2931fc151739849ee059b54e4adb83288d7b70e829eac18ee059cd3317ddd53301c9ba811b233224f95e58",
+      "createdAt": "2026-06-30T16:11:22.406Z",
+      "updatedAt": "2026-06-30T16:11:22.407Z"
+    },
+    {
+      "id": "test-user-b-1782835882407",
+      "email": "userb-1782835882407@example.com",
+      "name": "User Bob",
+      "passwordHash": "2561b97cfb39893f423847f65a3ae9c2:a885d26f488df20af2c064bfcc97dd52b2c9343ed66f29d238fc7a575040189d995e42ae64e1737dac8a89dc317aeff2bc5336186c4b26e6b4a4fa5570dcb78a",
+      "createdAt": "2026-06-30T16:11:22.433Z",
+      "updatedAt": "2026-06-30T16:11:22.433Z"
+    },
+    {
+      "id": "test-user-c-1782835882433",
+      "email": "userc-1782835882433@example.com",
+      "name": "User Charlie",
+      "passwordHash": "7aa0cfdcf975c8da61ca7eca43a438dc:dbf49f71198f8b262faf2c23d985116c2868ac1b82197c2bca25ae7e3d3cfb779113e9c57a8c17cc633f7f51becac7a5bf9feae5a2730e281cea2fd7fc92138f",
+      "createdAt": "2026-06-30T16:11:22.461Z",
+      "updatedAt": "2026-06-30T16:11:22.461Z"
     }
   ],
-  "projects": [],
+  "projects": [
+    {
+      "id": "test-project-1782835882467",
+      "userId": "test-user-b-1782835882407",
+      "name": "Collaboration Platform Test",
+      "description": "Testing RLS and role permissions",
+      "status": "planning",
+      "techStack": [
+        "Node",
+        "TypeScript"
+      ],
+      "deadline": "",
+      "priority": "high",
+      "repository": "",
+      "liveUrl": "",
+      "server": "",
+      "database": "",
+      "domain": "",
+      "apiKeys": "",
+      "notes": "",
+      "progress": 0,
+      "attachments": [],
+      "tags": [],
+      "createdAt": "2026-06-30T16:11:22.467Z",
+      "updatedAt": "2026-06-30T16:11:22.467Z"
+    }
+  ],
   "secrets": [],
   "snippets": [],
   "notes": [],
   "expenses": [],
   "repositories": [],
   "bugs": [],
-  "deployments": []
+  "deployments": [],
+  "projectMembers": [
+    {
+      "id": "test-pm-b-1782835882472",
+      "projectId": "test-project-1782835882467",
+      "userId": "test-user-b-1782835882407",
+      "role": "owner",
+      "createdAt": "2026-06-30T16:11:22.472Z",
+      "updatedAt": "2026-06-30T16:11:22.477Z"
+    }
+  ],
+  "invitations": []
 }

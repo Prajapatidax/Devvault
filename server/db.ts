@@ -18,7 +18,11 @@ import {
   Expense,
   RepositoryTracker,
   Bug,
-  Deployment
+  Deployment,
+  ProjectMember,
+  Invitation,
+  Notification,
+  ActivityLog
 } from "./types";
 
 const DB_FILE = path.join(process.cwd(), "server", "db.json");
@@ -39,6 +43,10 @@ interface DatabaseSchema {
   repositories: RepositoryTracker[];
   bugs: Bug[];
   deployments: Deployment[];
+  projectMembers: ProjectMember[];
+  invitations: Invitation[];
+  notifications: Notification[];
+  activityLogs: ActivityLog[];
 }
 
 const initialDb: DatabaseSchema = {
@@ -50,7 +58,11 @@ const initialDb: DatabaseSchema = {
   expenses: [],
   repositories: [],
   bugs: [],
-  deployments: []
+  deployments: [],
+  projectMembers: [],
+  invitations: [],
+  notifications: [],
+  activityLogs: []
 };
 
 // Encryption secret - derived from env or static fallback for development
@@ -296,12 +308,78 @@ class DatabaseManager {
         notes TEXT NOT NULL DEFAULT '',
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      // 10. Project Members
+      `CREATE TABLE IF NOT EXISTS project_members (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, user_id)
+      );`,
+
+      // 11. Invitations
+      `CREATE TABLE IF NOT EXISTS invitations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        inviter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, email)
+      );`,
+
+      // 12. Notifications
+      `CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+        invitation_id TEXT REFERENCES invitations(id) ON DELETE SET NULL,
+        read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      // 13. Activity Logs
+      `CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        details TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`
     ];
 
     for (const query of queries) {
       await this.pool.query(query);
     }
+
+    // Backfill existing projects with owner member
+    await this.pool.query(`
+      INSERT INTO project_members (id, project_id, user_id, role, created_at, updated_at)
+      SELECT 
+        md5(p.id || p.user_id)::text,
+        p.id,
+        p.user_id,
+        'owner',
+        p.created_at,
+        p.updated_at
+      FROM projects p
+      LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.role = 'owner'
+      WHERE pm.id IS NULL
+      ON CONFLICT (project_id, user_id) DO NOTHING;
+    `);
+
     console.log("Database migrations completed successfully.");
   }
 
@@ -398,18 +476,35 @@ class DatabaseManager {
   // --- Projects CRUD ---
   async getProjects(userId: string): Promise<Project[]> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM projects WHERE user_id = $1", [userId]);
+      const res = await this.pool!.query(
+        `SELECT p.* FROM projects p
+         JOIN project_members pm ON p.id = pm.project_id
+         WHERE pm.user_id = $1`,
+        [userId]
+      );
       return res.rows.map(toCamel);
     }
-    return this.readJson().projects.filter((p) => p.userId === userId);
+    const db = this.readJson();
+    const pmList = db.projectMembers || [];
+    const memberProjectIds = pmList.filter((pm) => pm.userId === userId).map((pm) => pm.projectId);
+    return db.projects.filter((p) => p.userId === userId || memberProjectIds.includes(p.id));
   }
 
   async getProjectById(id: string, userId: string): Promise<Project | undefined> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM projects WHERE id = $1 AND user_id = $2 LIMIT 1", [id, userId]);
+      const res = await this.pool!.query(
+        `SELECT p.* FROM projects p
+         JOIN project_members pm ON p.id = pm.project_id
+         WHERE p.id = $1 AND pm.user_id = $2
+         LIMIT 1`,
+        [id, userId]
+      );
       return res.rows[0] ? toCamel<Project>(res.rows[0]) : undefined;
     }
-    return this.readJson().projects.find((p) => p.id === id && p.userId === userId);
+    const db = this.readJson();
+    const pmList = db.projectMembers || [];
+    const isMember = pmList.some((pm) => pm.projectId === id && pm.userId === userId);
+    return db.projects.find((p) => p.id === id && (p.userId === userId || isMember));
   }
 
   async createProject(project: Project): Promise<Project> {
@@ -443,10 +538,24 @@ class DatabaseManager {
           project.updatedAt
         ]
       );
+      // Auto-insert creator as owner in project_members
+      await this.pool!.query(
+        "INSERT INTO project_members (id, project_id, user_id, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+        [crypto.randomUUID(), project.id, project.userId, "owner", project.createdAt, project.updatedAt]
+      );
       return project;
     }
     const db = this.readJson();
     db.projects.push(project);
+    db.projectMembers = db.projectMembers || [];
+    db.projectMembers.push({
+      id: crypto.randomUUID(),
+      projectId: project.id,
+      userId: project.userId,
+      role: "owner",
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt
+    });
     this.writeJson();
     return project;
   }
@@ -890,10 +999,18 @@ class DatabaseManager {
   // --- Bugs CRUD ---
   async getBugs(userId: string): Promise<Bug[]> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM bugs WHERE user_id = $1", [userId]);
+      const res = await this.pool!.query(
+        `SELECT b.* FROM bugs b
+         JOIN project_members pm ON b.project_id = pm.project_id
+         WHERE pm.user_id = $1`,
+        [userId]
+      );
       return res.rows.map(toCamel);
     }
-    return this.readJson().bugs.filter((b) => b.userId === userId);
+    const db = this.readJson();
+    const pmList = db.projectMembers || [];
+    const memberProjectIds = pmList.filter((pm) => pm.userId === userId).map((pm) => pm.projectId);
+    return db.bugs.filter((b) => b.userId === userId || memberProjectIds.includes(b.projectId));
   }
 
   async createBug(bug: Bug): Promise<Bug> {
@@ -922,7 +1039,12 @@ class DatabaseManager {
 
   async updateBug(id: string, userId: string, updates: Partial<Bug>): Promise<Bug | undefined> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM bugs WHERE id = $1 AND user_id = $2 LIMIT 1", [id, userId]);
+      const res = await this.pool!.query(
+        `SELECT b.* FROM bugs b
+         JOIN project_members pm ON b.project_id = pm.project_id
+         WHERE b.id = $1 AND pm.user_id = $2 LIMIT 1`,
+        [id, userId]
+      );
       const existing = res.rows[0] ? toCamel<Bug>(res.rows[0]) : undefined;
       if (!existing) return undefined;
 
@@ -933,7 +1055,7 @@ class DatabaseManager {
       };
 
       await this.pool!.query(
-        "UPDATE bugs SET project_id = $1, title = $2, description = $3, priority = $4, status = $5, updated_at = $6 WHERE id = $7 AND user_id = $8",
+        "UPDATE bugs SET project_id = $1, title = $2, description = $3, priority = $4, status = $5, updated_at = $6 WHERE id = $7",
         [
           merged.projectId,
           merged.title,
@@ -941,19 +1063,21 @@ class DatabaseManager {
           merged.priority,
           merged.status,
           merged.updatedAt,
-          id,
-          userId
+          id
         ]
       );
       return merged;
     }
 
     const db = this.readJson();
-    const index = db.bugs.findIndex((b) => b.id === id && b.userId === userId);
+    const index = db.bugs.findIndex((b) => b.id === id);
     if (index === -1) return undefined;
+    const bug = db.bugs[index];
+    const isMember = (db.projectMembers || []).some((pm) => pm.projectId === bug.projectId && pm.userId === userId);
+    if (!isMember) return undefined;
 
     db.bugs[index] = {
-      ...db.bugs[index],
+      ...bug,
       ...updates,
       updatedAt: new Date().toISOString()
     };
@@ -963,24 +1087,40 @@ class DatabaseManager {
 
   async deleteBug(id: string, userId: string): Promise<boolean> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("DELETE FROM bugs WHERE id = $1 AND user_id = $2", [id, userId]);
+      const res = await this.pool!.query(
+        `DELETE FROM bugs WHERE id = $1 AND project_id IN (
+          SELECT project_id FROM project_members WHERE user_id = $2
+        )`,
+        [id, userId]
+      );
       return (res.rowCount ?? 0) > 0;
     }
     const db = this.readJson();
-    const len = db.bugs.length;
-    db.bugs = db.bugs.filter((b) => !(b.id === id && b.userId === userId));
-    const success = db.bugs.length < len;
-    if (success) this.writeJson();
-    return success;
+    const bug = db.bugs.find((b) => b.id === id);
+    if (!bug) return false;
+    const isMember = (db.projectMembers || []).some((pm) => pm.projectId === bug.projectId && pm.userId === userId);
+    if (!isMember) return false;
+
+    db.bugs = db.bugs.filter((b) => b.id !== id);
+    this.writeJson();
+    return true;
   }
 
   // --- Deployments CRUD ---
   async getDeployments(userId: string): Promise<Deployment[]> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM deployments WHERE user_id = $1", [userId]);
+      const res = await this.pool!.query(
+        `SELECT d.* FROM deployments d
+         JOIN project_members pm ON d.project_id = pm.project_id
+         WHERE pm.user_id = $1`,
+        [userId]
+      );
       return res.rows.map(toCamel);
     }
-    return this.readJson().deployments.filter((d) => d.userId === userId);
+    const db = this.readJson();
+    const pmList = db.projectMembers || [];
+    const memberProjectIds = pmList.filter((pm) => pm.userId === userId).map((pm) => pm.projectId);
+    return db.deployments.filter((d) => d.userId === userId || memberProjectIds.includes(d.projectId));
   }
 
   async createDeployment(deployment: Deployment): Promise<Deployment> {
@@ -1009,7 +1149,12 @@ class DatabaseManager {
 
   async updateDeployment(id: string, userId: string, updates: Partial<Deployment>): Promise<Deployment | undefined> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("SELECT * FROM deployments WHERE id = $1 AND user_id = $2 LIMIT 1", [id, userId]);
+      const res = await this.pool!.query(
+        `SELECT d.* FROM deployments d
+         JOIN project_members pm ON d.project_id = pm.project_id
+         WHERE d.id = $1 AND pm.user_id = $2 LIMIT 1`,
+        [id, userId]
+      );
       const existing = res.rows[0] ? toCamel<Deployment>(res.rows[0]) : undefined;
       if (!existing) return undefined;
 
@@ -1020,7 +1165,7 @@ class DatabaseManager {
       };
 
       await this.pool!.query(
-        "UPDATE deployments SET project_id = $1, frontend_url = $2, backend_url = $3, platform = $4, notes = $5, updated_at = $6 WHERE id = $7 AND user_id = $8",
+        "UPDATE deployments SET project_id = $1, frontend_url = $2, backend_url = $3, platform = $4, notes = $5, updated_at = $6 WHERE id = $7",
         [
           merged.projectId,
           merged.frontendUrl,
@@ -1028,19 +1173,21 @@ class DatabaseManager {
           merged.platform,
           merged.notes,
           merged.updatedAt,
-          id,
-          userId
+          id
         ]
       );
       return merged;
     }
 
     const db = this.readJson();
-    const index = db.deployments.findIndex((d) => d.id === id && d.userId === userId);
+    const index = db.deployments.findIndex((d) => d.id === id);
     if (index === -1) return undefined;
+    const dep = db.deployments[index];
+    const isMember = (db.projectMembers || []).some((pm) => pm.projectId === dep.projectId && pm.userId === userId);
+    if (!isMember) return undefined;
 
     db.deployments[index] = {
-      ...db.deployments[index],
+      ...dep,
       ...updates,
       updatedAt: new Date().toISOString()
     };
@@ -1050,15 +1197,23 @@ class DatabaseManager {
 
   async deleteDeployment(id: string, userId: string): Promise<boolean> {
     if (this.usePostgres) {
-      const res = await this.pool!.query("DELETE FROM deployments WHERE id = $1 AND user_id = $2", [id, userId]);
+      const res = await this.pool!.query(
+        `DELETE FROM deployments WHERE id = $1 AND project_id IN (
+          SELECT project_id FROM project_members WHERE user_id = $2
+        )`,
+        [id, userId]
+      );
       return (res.rowCount ?? 0) > 0;
     }
     const db = this.readJson();
-    const len = db.deployments.length;
-    db.deployments = db.deployments.filter((d) => !(d.id === id && d.userId === userId));
-    const success = db.deployments.length < len;
-    if (success) this.writeJson();
-    return success;
+    const dep = db.deployments.find((d) => d.id === id);
+    if (!dep) return false;
+    const isMember = (db.projectMembers || []).some((pm) => pm.projectId === dep.projectId && pm.userId === userId);
+    if (!isMember) return false;
+
+    db.deployments = db.deployments.filter((d) => d.id !== id);
+    this.writeJson();
+    return true;
   }
 
   // --- Export / Import ---
@@ -1073,6 +1228,10 @@ class DatabaseManager {
       const repositories = await this.pool!.query("SELECT * FROM repositories");
       const bugs = await this.pool!.query("SELECT * FROM bugs");
       const deployments = await this.pool!.query("SELECT * FROM deployments");
+      const projectMembers = await this.pool!.query("SELECT * FROM project_members");
+      const invitations = await this.pool!.query("SELECT * FROM invitations");
+      const notifications = await this.pool!.query("SELECT * FROM notifications");
+      const activityLogs = await this.pool!.query("SELECT * FROM activity_logs");
 
       return {
         users: users.rows.map(toCamel),
@@ -1083,7 +1242,11 @@ class DatabaseManager {
         expenses: expenses.rows.map(toCamel),
         repositories: repositories.rows.map(toCamel),
         bugs: bugs.rows.map(toCamel),
-        deployments: deployments.rows.map(toCamel)
+        deployments: deployments.rows.map(toCamel),
+        projectMembers: projectMembers.rows.map(toCamel),
+        invitations: invitations.rows.map(toCamel),
+        notifications: notifications.rows.map(toCamel),
+        activityLogs: activityLogs.rows.map(toCamel)
       };
     }
     return this.readJson();
@@ -1101,6 +1264,10 @@ class DatabaseManager {
       if (newData.repositories) db.repositories = newData.repositories;
       if (newData.bugs) db.bugs = newData.bugs;
       if (newData.deployments) db.deployments = newData.deployments;
+      if (newData.projectMembers) db.projectMembers = newData.projectMembers;
+      if (newData.invitations) db.invitations = newData.invitations;
+      if (newData.notifications) db.notifications = newData.notifications;
+      if (newData.activityLogs) db.activityLogs = newData.activityLogs;
       this.writeJson();
       return;
     }
@@ -1110,6 +1277,10 @@ class DatabaseManager {
       await client.query("BEGIN");
 
       // Delete references first, then parent tables
+      await client.query("DELETE FROM notifications");
+      await client.query("DELETE FROM activity_logs");
+      await client.query("DELETE FROM invitations");
+      await client.query("DELETE FROM project_members");
       await client.query("DELETE FROM deployments");
       await client.query("DELETE FROM bugs");
       await client.query("DELETE FROM repositories");
@@ -1300,6 +1471,46 @@ class DatabaseManager {
         }
       }
 
+      // Insert Project Members
+      if (Array.isArray(newData.projectMembers)) {
+        for (const pm of newData.projectMembers) {
+          await client.query(
+            "INSERT INTO project_members (id, project_id, user_id, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            [pm.id, pm.projectId, pm.userId, pm.role, pm.createdAt, pm.updatedAt]
+          );
+        }
+      }
+
+      // Insert Invitations
+      if (Array.isArray(newData.invitations)) {
+        for (const inv of newData.invitations) {
+          await client.query(
+            "INSERT INTO invitations (id, project_id, inviter_id, email, role, message, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            [inv.id, inv.projectId, inv.inviterId, inv.email, inv.role, inv.message, inv.status, inv.createdAt, inv.updatedAt]
+          );
+        }
+      }
+
+      // Insert Notifications
+      if (Array.isArray(newData.notifications)) {
+        for (const n of newData.notifications) {
+          await client.query(
+            "INSERT INTO notifications (id, user_id, type, title, message, project_id, invitation_id, read, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            [n.id, n.userId, n.type, n.title, n.message, n.projectId, n.invitationId, n.read, n.createdAt, n.updatedAt]
+          );
+        }
+      }
+
+      // Insert Activity Logs
+      if (Array.isArray(newData.activityLogs)) {
+        for (const log of newData.activityLogs) {
+          await client.query(
+            "INSERT INTO activity_logs (id, project_id, user_id, action, details, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            [log.id, log.projectId, log.userId, log.action, log.details, log.createdAt]
+          );
+        }
+      }
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1308,6 +1519,340 @@ class DatabaseManager {
     } finally {
       client.release();
     }
+  }
+
+  // --- Project Members CRUD ---
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT pm.*, u.name as user_name, u.email as user_email 
+         FROM project_members pm 
+         JOIN users u ON pm.user_id = u.id 
+         WHERE pm.project_id = $1`,
+        [projectId]
+      );
+      return res.rows.map(toCamel);
+    }
+    const db = this.readJson();
+    const members = (db.projectMembers || []).filter((m) => m.projectId === projectId);
+    return members.map((m) => {
+      const user = db.users.find((u) => u.id === m.userId);
+      return { ...m, userName: user?.name, userEmail: user?.email };
+    });
+  }
+
+  async getProjectMember(projectId: string, userId: string): Promise<ProjectMember | undefined> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT pm.*, u.name as user_name, u.email as user_email 
+         FROM project_members pm 
+         JOIN users u ON pm.user_id = u.id 
+         WHERE pm.project_id = $1 AND pm.user_id = $2 
+         LIMIT 1`,
+        [projectId, userId]
+      );
+      return res.rows[0] ? toCamel<ProjectMember>(res.rows[0]) : undefined;
+    }
+    const db = this.readJson();
+    const pm = (db.projectMembers || []).find((m) => m.projectId === projectId && m.userId === userId);
+    if (!pm) return undefined;
+    const user = db.users.find((u) => u.id === pm.userId);
+    return { ...pm, userName: user?.name, userEmail: user?.email };
+  }
+
+  async createProjectMember(member: ProjectMember): Promise<ProjectMember> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        `INSERT INTO project_members (id, project_id, user_id, role, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [member.id, member.projectId, member.userId, member.role, member.createdAt, member.updatedAt]
+      );
+      return member;
+    }
+    const db = this.readJson();
+    db.projectMembers = db.projectMembers || [];
+    db.projectMembers.push(member);
+    this.writeJson();
+    return member;
+  }
+
+  async updateProjectMemberRole(projectId: string, userId: string, role: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `UPDATE project_members SET role = $1, updated_at = $2 
+         WHERE project_id = $3 AND user_id = $4`,
+        [role, new Date().toISOString(), projectId, userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const index = (db.projectMembers || []).findIndex((m) => m.projectId === projectId && m.userId === userId);
+    if (index === -1) return false;
+    db.projectMembers[index].role = role as any;
+    db.projectMembers[index].updatedAt = new Date().toISOString();
+    this.writeJson();
+    return true;
+  }
+
+  async deleteProjectMember(projectId: string, userId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "DELETE FROM project_members WHERE project_id = $1 AND user_id = $2",
+        [projectId, userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const len = db.projectMembers ? db.projectMembers.length : 0;
+    db.projectMembers = (db.projectMembers || []).filter((m) => !(m.projectId === projectId && m.userId === userId));
+    const success = db.projectMembers.length < len;
+    if (success) this.writeJson();
+    return success;
+  }
+
+  async transferProjectOwnership(projectId: string, currentOwnerId: string, newOwnerId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const client = await this.pool!.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("UPDATE projects SET user_id = $1 WHERE id = $2", [newOwnerId, projectId]);
+        await client.query("UPDATE project_members SET role = 'admin' WHERE project_id = $1 AND user_id = $2", [projectId, currentOwnerId]);
+        await client.query("UPDATE project_members SET role = 'owner' WHERE project_id = $1 AND user_id = $2", [projectId, newOwnerId]);
+        await client.query("COMMIT");
+        return true;
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("Failed to transfer ownership in PostgreSQL:", err);
+        return false;
+      } finally {
+        client.release();
+      }
+    }
+    const db = this.readJson();
+    const pIndex = db.projects.findIndex((p) => p.id === projectId);
+    if (pIndex === -1) return false;
+    db.projects[pIndex].userId = newOwnerId;
+
+    const pmList = db.projectMembers || [];
+    const currentOwnerMember = pmList.find((m) => m.projectId === projectId && m.userId === currentOwnerId);
+    const newOwnerMember = pmList.find((m) => m.projectId === projectId && m.userId === newOwnerId);
+
+    if (currentOwnerMember) currentOwnerMember.role = "admin";
+    if (newOwnerMember) {
+      newOwnerMember.role = "owner";
+    } else {
+      pmList.push({
+        id: crypto.randomUUID(),
+        projectId,
+        userId: newOwnerId,
+        role: "owner",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    db.projectMembers = pmList;
+    this.writeJson();
+    return true;
+  }
+
+  // --- Invitations CRUD ---
+  async getInvitationById(id: string): Promise<Invitation | undefined> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT i.*, p.name as project_name, u.name as inviter_name 
+         FROM invitations i 
+         JOIN projects p ON i.project_id = p.id 
+         JOIN users u ON i.inviter_id = u.id 
+         WHERE i.id = $1 LIMIT 1`,
+        [id]
+      );
+      return res.rows[0] ? toCamel<Invitation>(res.rows[0]) : undefined;
+    }
+    const db = this.readJson();
+    const i = (db.invitations || []).find((inv) => inv.id === id);
+    if (!i) return undefined;
+    const project = db.projects.find((p) => p.id === i.projectId);
+    const inviter = db.users.find((u) => u.id === i.inviterId);
+    return { ...i, projectName: project?.name, inviterName: inviter?.name };
+  }
+
+  async getInvitationByProjectAndEmail(projectId: string, email: string): Promise<Invitation | undefined> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT * FROM invitations 
+         WHERE project_id = $1 AND LOWER(email) = LOWER($2) AND status = 'pending' 
+         LIMIT 1`,
+        [projectId, email]
+      );
+      return res.rows[0] ? toCamel<Invitation>(res.rows[0]) : undefined;
+    }
+    const db = this.readJson();
+    return (db.invitations || []).find(
+      (i) => i.projectId === projectId && i.email.toLowerCase() === email.toLowerCase() && i.status === "pending"
+    );
+  }
+
+  async getInvitationsByProject(projectId: string): Promise<Invitation[]> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT i.*, u.name as inviter_name 
+         FROM invitations i 
+         JOIN users u ON i.inviter_id = u.id 
+         WHERE i.project_id = $1`,
+        [projectId]
+      );
+      return res.rows.map(toCamel);
+    }
+    const db = this.readJson();
+    const list = (db.invitations || []).filter((i) => i.projectId === projectId);
+    return list.map((i) => {
+      const inviter = db.users.find((u) => u.id === i.inviterId);
+      return { ...i, inviterName: inviter?.name };
+    });
+  }
+
+  async createInvitation(inv: Invitation): Promise<Invitation> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        `INSERT INTO invitations (id, project_id, inviter_id, email, role, message, status, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [inv.id, inv.projectId, inv.inviterId, inv.email, inv.role, inv.message, inv.status, inv.createdAt, inv.updatedAt]
+      );
+      return inv;
+    }
+    const db = this.readJson();
+    db.invitations = db.invitations || [];
+    db.invitations.push(inv);
+    this.writeJson();
+    return inv;
+  }
+
+  async updateInvitationStatus(id: string, status: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "UPDATE invitations SET status = $1, updated_at = $2 WHERE id = $3",
+        [status, new Date().toISOString(), id]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const index = (db.invitations || []).findIndex((i) => i.id === id);
+    if (index === -1) return false;
+    db.invitations[index].status = status as any;
+    db.invitations[index].updatedAt = new Date().toISOString();
+    this.writeJson();
+    return true;
+  }
+
+  async deleteInvitation(id: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query("DELETE FROM invitations WHERE id = $1", [id]);
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const len = db.invitations ? db.invitations.length : 0;
+    db.invitations = (db.invitations || []).filter((i) => i.id !== id);
+    const success = db.invitations.length < len;
+    if (success) this.writeJson();
+    return success;
+  }
+
+  // --- Notifications CRUD ---
+  async getNotificationsByUser(userId: string): Promise<Notification[]> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC",
+        [userId]
+      );
+      return res.rows.map(toCamel);
+    }
+    const db = this.readJson();
+    return (db.notifications || [])
+      .filter((n) => n.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createNotification(notif: Notification): Promise<Notification> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        `INSERT INTO notifications (id, user_id, type, title, message, project_id, invitation_id, read, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          notif.id,
+          notif.userId,
+          notif.type,
+          notif.title,
+          notif.message,
+          notif.projectId,
+          notif.invitationId,
+          notif.read,
+          notif.createdAt,
+          notif.updatedAt
+        ]
+      );
+      return notif;
+    }
+    const db = this.readJson();
+    db.notifications = db.notifications || [];
+    db.notifications.push(notif);
+    this.writeJson();
+    return notif;
+  }
+
+  async markNotificationAsRead(id: string, userId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "UPDATE notifications SET read = TRUE, updated_at = $1 WHERE id = $2 AND user_id = $3",
+        [new Date().toISOString(), id, userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const index = (db.notifications || []).findIndex((n) => n.id === id && n.userId === userId);
+    if (index === -1) return false;
+    db.notifications[index].read = true;
+    db.notifications[index].updatedAt = new Date().toISOString();
+    this.writeJson();
+    return true;
+  }
+
+  // --- Activity Logs CRUD ---
+  async createActivityLog(log: ActivityLog): Promise<ActivityLog> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        `INSERT INTO activity_logs (id, project_id, user_id, action, details, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [log.id, log.projectId, log.userId, log.action, log.details, log.createdAt]
+      );
+      return log;
+    }
+    const db = this.readJson();
+    db.activityLogs = db.activityLogs || [];
+    db.activityLogs.push(log);
+    this.writeJson();
+    return log;
+  }
+
+  async getActivityLogsByProject(projectId: string): Promise<ActivityLog[]> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        `SELECT al.*, u.name as user_name 
+         FROM activity_logs al 
+         JOIN users u ON al.user_id = u.id 
+         WHERE al.project_id = $1 
+         ORDER BY al.created_at DESC`,
+        [projectId]
+      );
+      return res.rows.map(toCamel);
+    }
+    const db = this.readJson();
+    const list = (db.activityLogs || []).filter((l) => l.projectId === projectId);
+    return list
+      .map((l) => {
+        const user = db.users.find((u) => u.id === l.userId);
+        return { ...l, userName: user?.name };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 }
 

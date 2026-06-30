@@ -154,3 +154,55 @@ export interface Deployment {
   createdAt: string;
   updatedAt: string;
 }
+
+export type ProjectRole = "owner" | "admin" | "editor" | "viewer";
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: ProjectRole;
+  createdAt: string;
+  updatedAt: string;
+  // Included fields for API display convenience
+  userName?: string;
+  userEmail?: string;
+}
+
+export interface Invitation {
+  id: string;
+  projectId: string;
+  inviterId: string;
+  email: string;
+  role: "admin" | "editor" | "viewer";
+  message?: string;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  projectName?: string;
+  inviterName?: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: "project_invitation" | "role_changed" | "removed_from_project" | "added_to_project";
+  title: string;
+  message: string;
+  projectId?: string;
+  invitationId?: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  projectId: string;
+  userId: string;
+  action: "member_invited" | "invitation_accepted" | "invitation_rejected" | "role_changed" | "member_removed" | "ownership_transferred";
+  details: string;
+  createdAt: string;
+  userName?: string;
+}
+

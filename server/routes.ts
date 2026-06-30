@@ -7,7 +7,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { dbManager, encrypt, decrypt } from "./db";
 import { signToken, verifyToken, hashPassword, verifyPassword } from "./auth";
-import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus } from "./types";
+import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog } from "./types";
+import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
 
 export const apiRouter = Router();
@@ -260,7 +261,7 @@ apiRouter.post("/projects", requireAuth, async (req: AuthenticatedRequest, res: 
   }
 });
 
-apiRouter.put("/projects/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+apiRouter.put("/projects/:id", requireAuth, requireProjectPermission(["owner", "admin", "editor"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
@@ -280,7 +281,7 @@ apiRouter.put("/projects/:id", requireAuth, async (req: AuthenticatedRequest, re
   }
 });
 
-apiRouter.get("/projects/:id/reveal-keys", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+apiRouter.get("/projects/:id/reveal-keys", requireAuth, requireProjectPermission(["owner", "admin", "editor"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const project = await dbManager.getProjectById(id, req.user!.id);
@@ -298,7 +299,7 @@ apiRouter.get("/projects/:id/reveal-keys", requireAuth, async (req: Authenticate
   }
 });
 
-apiRouter.delete("/projects/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+apiRouter.delete("/projects/:id", requireAuth, requireProjectPermission(["owner"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const success = await dbManager.deleteProject(req.params.id, req.user!.id);
     if (!success) {
@@ -617,6 +618,9 @@ apiRouter.delete("/repositories/:id", requireAuth, async (req: AuthenticatedRequ
 // ==========================================
 // BUG TRACKER ENDPOINTS (MODULE 9)
 // ==========================================
+// ==========================================
+// BUG TRACKER ENDPOINTS (MODULE 9)
+// ==========================================
 apiRouter.get("/bugs", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     res.json(await dbManager.getBugs(req.user!.id));
@@ -630,6 +634,12 @@ apiRouter.post("/bugs", requireAuth, async (req: AuthenticatedRequest, res: Resp
     const { title, description, priority, status, projectId } = req.body;
     if (!title || !projectId) {
       return res.status(400).json({ error: "Title and Project ID are required" });
+    }
+
+    // Verify project member has Editor/Admin/Owner permission
+    const member = await dbManager.getProjectMember(projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot create bugs" });
     }
 
     const newBug: Bug = {
@@ -653,6 +663,18 @@ apiRouter.post("/bugs", requireAuth, async (req: AuthenticatedRequest, res: Resp
 
 apiRouter.put("/bugs/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const bugs = await dbManager.getBugs(req.user!.id);
+    const existingBug = bugs.find((b) => b.id === req.params.id);
+    if (!existingBug) {
+      return res.status(404).json({ error: "Bug not found or access denied" });
+    }
+
+    // Verify project member permission
+    const member = await dbManager.getProjectMember(existingBug.projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot edit bugs" });
+    }
+
     const updated = await dbManager.updateBug(req.params.id, req.user!.id, req.body);
     if (!updated) {
       return res.status(404).json({ error: "Bug not found" });
@@ -665,6 +687,18 @@ apiRouter.put("/bugs/:id", requireAuth, async (req: AuthenticatedRequest, res: R
 
 apiRouter.delete("/bugs/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const bugs = await dbManager.getBugs(req.user!.id);
+    const existingBug = bugs.find((b) => b.id === req.params.id);
+    if (!existingBug) {
+      return res.status(404).json({ error: "Bug not found or access denied" });
+    }
+
+    // Verify project member permission
+    const member = await dbManager.getProjectMember(existingBug.projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot delete bugs" });
+    }
+
     const success = await dbManager.deleteBug(req.params.id, req.user!.id);
     if (!success) {
       return res.status(404).json({ error: "Bug not found" });
@@ -693,6 +727,12 @@ apiRouter.post("/deployments", requireAuth, async (req: AuthenticatedRequest, re
       return res.status(400).json({ error: "Project ID and Platform are required" });
     }
 
+    // Verify project member has Editor/Admin/Owner permission
+    const member = await dbManager.getProjectMember(projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot create deployments" });
+    }
+
     const newDeployment: Deployment = {
       id: crypto.randomUUID(),
       userId: req.user!.id,
@@ -714,6 +754,18 @@ apiRouter.post("/deployments", requireAuth, async (req: AuthenticatedRequest, re
 
 apiRouter.put("/deployments/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const deployments = await dbManager.getDeployments(req.user!.id);
+    const existingDep = deployments.find((d) => d.id === req.params.id);
+    if (!existingDep) {
+      return res.status(404).json({ error: "Deployment not found or access denied" });
+    }
+
+    // Verify project member permission
+    const member = await dbManager.getProjectMember(existingDep.projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot edit deployments" });
+    }
+
     const updated = await dbManager.updateDeployment(req.params.id, req.user!.id, req.body);
     if (!updated) {
       return res.status(404).json({ error: "Deployment not found" });
@@ -726,6 +778,18 @@ apiRouter.put("/deployments/:id", requireAuth, async (req: AuthenticatedRequest,
 
 apiRouter.delete("/deployments/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const deployments = await dbManager.getDeployments(req.user!.id);
+    const existingDep = deployments.find((d) => d.id === req.params.id);
+    if (!existingDep) {
+      return res.status(404).json({ error: "Deployment not found or access denied" });
+    }
+
+    // Verify project member permission
+    const member = await dbManager.getProjectMember(existingDep.projectId, req.user!.id);
+    if (!member || member.role === "viewer") {
+      return res.status(403).json({ error: "Forbidden: Viewers cannot delete deployments" });
+    }
+
     const success = await dbManager.deleteDeployment(req.params.id, req.user!.id);
     if (!success) {
       return res.status(404).json({ error: "Deployment not found" });
@@ -887,5 +951,479 @@ apiRouter.post("/settings/import", requireAuth, async (req: AuthenticatedRequest
     res.json({ message: "Data imported successfully!" });
   } catch (error) {
     res.status(400).json({ error: "Failed to parse import data: invalid JSON shape." });
+  }
+});
+
+// ==========================================
+// TEAM COLLABORATION ENDPOINTS
+// ==========================================
+
+apiRouter.get("/realtime", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  RealtimeManager.addClient(req.user!.id, req, res);
+});
+
+apiRouter.get("/projects/:projectId/members", requireAuth, requireProjectPermission(["owner", "admin", "editor", "viewer"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId } = req.params;
+    const members = await dbManager.getProjectMembers(projectId);
+    res.json(members);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/projects/:projectId/activity", requireAuth, requireProjectPermission(["owner", "admin", "editor", "viewer"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId } = req.params;
+    const logs = await dbManager.getActivityLogsByProject(projectId);
+    res.json(logs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.put("/projects/:projectId/members/:memberId", requireAuth, requireProjectPermission(["owner"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId, memberId } = req.params;
+    const { role } = req.body;
+
+    if (memberId === req.user!.id) {
+      return res.status(400).json({ error: "Owner cannot change their own role. Transfer ownership instead." });
+    }
+
+    if (!["admin", "editor", "viewer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role specified." });
+    }
+
+    const member = await dbManager.getProjectMember(projectId, memberId);
+    if (!member) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    const success = await dbManager.updateProjectMemberRole(projectId, memberId, role);
+    if (!success) {
+      return res.status(500).json({ error: "Failed to update member role." });
+    }
+
+    // Log Activity
+    const targetUser = await dbManager.getUserById(memberId);
+    await ActivityLogger.log(
+      projectId,
+      req.user!.id,
+      "role_changed",
+      `Changed role of user ${targetUser?.name || memberId} to ${role}.`
+    );
+
+    // Create Notification
+    const project = await dbManager.getProjectById(projectId, req.user!.id);
+    await dbManager.createNotification({
+      id: crypto.randomUUID(),
+      userId: memberId,
+      type: "role_changed",
+      title: "Role Changed",
+      message: `Your role in project "${project?.name || 'Collaboration'}" was changed to ${role} by ${req.user!.name}.`,
+      projectId,
+      read: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    RealtimeManager.broadcast(projectId, {
+      type: "member_role_changed",
+      projectId,
+      userId: memberId,
+      role
+    });
+
+    RealtimeManager.broadcastToUser(memberId, {
+      type: "my_role_changed",
+      projectId,
+      role
+    });
+
+    res.json({ message: "Member role updated successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/projects/:projectId/members/:memberId", requireAuth, requireProjectPermission(["owner", "admin"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId, memberId } = req.params;
+    const inviterMember = (req as any).projectMember;
+
+    if (memberId === req.user!.id) {
+      return res.status(400).json({ error: "You cannot remove yourself from the project. Transfer ownership or have another Admin remove you." });
+    }
+
+    const targetMember = await dbManager.getProjectMember(projectId, memberId);
+    if (!targetMember) {
+      return res.status(404).json({ error: "Member not found." });
+    }
+
+    // Role safety checks: Admin can only remove Editor or Viewer
+    if (inviterMember.role === "admin" && (targetMember.role === "owner" || targetMember.role === "admin")) {
+      return res.status(403).json({ error: "Forbidden: Admins can only remove Editors and Viewers." });
+    }
+
+    if (targetMember.role === "owner") {
+      return res.status(400).json({ error: "Cannot remove the project Owner." });
+    }
+
+    const success = await dbManager.deleteProjectMember(projectId, memberId);
+    if (!success) {
+      return res.status(500).json({ error: "Failed to remove member." });
+    }
+
+    // Log Activity
+    const targetUser = await dbManager.getUserById(memberId);
+    await ActivityLogger.log(
+      projectId,
+      req.user!.id,
+      "member_removed",
+      `Removed member ${targetUser?.name || memberId} from the project.`
+    );
+
+    // Create Notification
+    const project = await dbManager.getProjectById(projectId, req.user!.id);
+    await dbManager.createNotification({
+      id: crypto.randomUUID(),
+      userId: memberId,
+      type: "removed_from_project",
+      title: "Removed from Project",
+      message: `You were removed from project "${project?.name || 'Collaboration'}" by ${req.user!.name}.`,
+      projectId,
+      read: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    RealtimeManager.broadcast(projectId, {
+      type: "member_left",
+      projectId,
+      userId: memberId
+    });
+
+    RealtimeManager.broadcastToUser(memberId, {
+      type: "removed_from_project",
+      projectId
+    });
+
+    res.json({ message: "Member removed successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/projects/:projectId/transfer-ownership", requireAuth, requireProjectPermission(["owner"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId } = req.params;
+    const { newOwnerId } = req.body;
+
+    if (!newOwnerId) {
+      return res.status(400).json({ error: "New owner user ID is required." });
+    }
+
+    if (newOwnerId === req.user!.id) {
+      return res.status(400).json({ error: "You are already the owner of this project." });
+    }
+
+    const targetMember = await dbManager.getProjectMember(projectId, newOwnerId);
+    if (!targetMember) {
+      return res.status(400).json({ error: "New owner must be a member of the project first." });
+    }
+
+    const success = await dbManager.transferProjectOwnership(projectId, req.user!.id, newOwnerId);
+    if (!success) {
+      return res.status(500).json({ error: "Failed to transfer project ownership." });
+    }
+
+    // Log Activity
+    const targetUser = await dbManager.getUserById(newOwnerId);
+    await ActivityLogger.log(
+      projectId,
+      req.user!.id,
+      "ownership_transferred",
+      `Transferred project ownership to ${targetUser?.name || newOwnerId}.`
+    );
+
+    // Create Notification
+    const project = await dbManager.getProjectById(projectId, newOwnerId);
+    await dbManager.createNotification({
+      id: crypto.randomUUID(),
+      userId: newOwnerId,
+      type: "role_changed",
+      title: "Ownership Transferred",
+      message: `You are now the Owner of project "${project?.name || 'Collaboration'}"! Ownership was transferred to you by ${req.user!.name}.`,
+      projectId,
+      read: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    RealtimeManager.broadcast(projectId, {
+      type: "ownership_transferred",
+      projectId,
+      newOwnerId,
+      oldOwnerId: req.user!.id
+    });
+
+    RealtimeManager.broadcastToUser(newOwnerId, {
+      type: "my_role_changed",
+      projectId,
+      role: "owner"
+    });
+
+    res.json({ message: "Ownership transferred successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/projects/:projectId/invitations", requireAuth, requireProjectPermission(["owner", "admin"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId } = req.params;
+    const { email, role, message } = req.body;
+
+    if (!email || !role) {
+      return res.status(400).json({ error: "Email and role are required." });
+    }
+
+    if (!["admin", "editor", "viewer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid invitation role. Choose Admin, Editor, or Viewer." });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const targetUser = await dbManager.getUserByEmail(trimmedEmail);
+    if (!targetUser) {
+      return res.status(404).json({ error: `User with email ${trimmedEmail} not found in DevVault.` });
+    }
+
+    if (targetUser.id === req.user!.id) {
+      return res.status(400).json({ error: "You cannot invite yourself to the project." });
+    }
+
+    const existingMember = await dbManager.getProjectMember(projectId, targetUser.id);
+    if (existingMember) {
+      return res.status(400).json({ error: "This user is already a member of this project." });
+    }
+
+    const existingInv = await dbManager.getInvitationByProjectAndEmail(projectId, trimmedEmail);
+    if (existingInv) {
+      return res.status(400).json({ error: "An invitation is already pending for this user email." });
+    }
+
+    const newInv: Invitation = {
+      id: crypto.randomUUID(),
+      projectId,
+      inviterId: req.user!.id,
+      email: trimmedEmail,
+      role: role as any,
+      message: message || "",
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await dbManager.createInvitation(newInv);
+
+    // Create Notification
+    const project = await dbManager.getProjectById(projectId, req.user!.id);
+    await dbManager.createNotification({
+      id: crypto.randomUUID(),
+      userId: targetUser.id,
+      type: "project_invitation",
+      title: "Project Invitation",
+      message: `${req.user!.name} invited you to join project "${project?.name || 'Collaboration'}" as a ${role}.`,
+      projectId,
+      invitationId: newInv.id,
+      read: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    // Log Activity
+    await ActivityLogger.log(
+      projectId,
+      req.user!.id,
+      "member_invited",
+      `Invited user ${targetUser.name} (${trimmedEmail}) to join as ${role}.`
+    );
+
+    // Alert recipient of new notification
+    RealtimeManager.broadcastToUser(targetUser.id, {
+      type: "new_notification"
+    });
+
+    // Alert project members of pending invitations list update
+    RealtimeManager.broadcast(projectId, {
+      type: "invitations_updated",
+      projectId
+    });
+
+    res.status(201).json({ message: "Invitation sent successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/projects/:projectId/invitations", requireAuth, requireProjectPermission(["owner", "admin"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId } = req.params;
+    const invitations = await dbManager.getInvitationsByProject(projectId);
+    res.json(invitations);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/projects/:projectId/invitations/:invitationId", requireAuth, requireProjectPermission(["owner", "admin"]), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { projectId, invitationId } = req.params;
+    const invitation = await dbManager.getInvitationById(invitationId);
+    if (!invitation || invitation.projectId !== projectId) {
+      return res.status(404).json({ error: "Invitation not found." });
+    }
+
+    const success = await dbManager.deleteInvitation(invitationId);
+    if (!success) {
+      return res.status(500).json({ error: "Failed to cancel invitation." });
+    }
+
+    RealtimeManager.broadcast(projectId, {
+      type: "invitations_updated",
+      projectId
+    });
+
+    res.json({ message: "Invitation cancelled successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/notifications", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const list = await dbManager.getNotificationsByUser(req.user!.id);
+    res.json(list);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.put("/notifications/:id/read", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const success = await dbManager.markNotificationAsRead(req.params.id, req.user!.id);
+    if (!success) {
+      return res.status(404).json({ error: "Notification not found." });
+    }
+    res.json({ message: "Notification marked as read." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/notifications/:id/accept", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const notifId = req.params.id;
+    const notifications = await dbManager.getNotificationsByUser(req.user!.id);
+    const notification = notifications.find((n) => n.id === notifId);
+
+    if (!notification || notification.userId !== req.user!.id) {
+      return res.status(404).json({ error: "Notification not found." });
+    }
+
+    if (notification.type !== "project_invitation" || !notification.invitationId) {
+      return res.status(400).json({ error: "Invalid notification type." });
+    }
+
+    const invitation = await dbManager.getInvitationById(notification.invitationId);
+    if (!invitation || invitation.status !== "pending") {
+      return res.status(404).json({ error: "Invitation expired, rejected, or not found." });
+    }
+
+    // Insert user into project members
+    const newMember: ProjectMember = {
+      id: crypto.randomUUID(),
+      projectId: invitation.projectId,
+      userId: req.user!.id,
+      role: invitation.role,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await dbManager.createProjectMember(newMember);
+
+    // Delete/Clean up invitation
+    await dbManager.deleteInvitation(invitation.id);
+
+    // Mark notification as read
+    await dbManager.markNotificationAsRead(notifId, req.user!.id);
+
+    // Log Activity
+    await ActivityLogger.log(
+      invitation.projectId,
+      req.user!.id,
+      "invitation_accepted",
+      `Accepted project invitation and joined as ${invitation.role}.`
+    );
+
+    // Broadcast Real-time Updates to Project Members
+    RealtimeManager.broadcast(invitation.projectId, {
+      type: "member_joined",
+      projectId: invitation.projectId,
+      member: {
+        ...newMember,
+        userName: req.user!.name,
+        userEmail: req.user!.email
+      }
+    });
+
+    res.json({ message: "Invitation accepted. You are now a project member." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/notifications/:id/reject", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const notifId = req.params.id;
+    const notifications = await dbManager.getNotificationsByUser(req.user!.id);
+    const notification = notifications.find((n) => n.id === notifId);
+
+    if (!notification || notification.userId !== req.user!.id) {
+      return res.status(404).json({ error: "Notification not found." });
+    }
+
+    if (notification.type !== "project_invitation" || !notification.invitationId) {
+      return res.status(400).json({ error: "Invalid notification type." });
+    }
+
+    const invitation = await dbManager.getInvitationById(notification.invitationId);
+    if (invitation) {
+      // Delete/Clean up invitation
+      await dbManager.deleteInvitation(invitation.id);
+
+      // Log Activity
+      await ActivityLogger.log(
+        invitation.projectId,
+        req.user!.id,
+        "invitation_rejected",
+        `Rejected project invitation.`
+      );
+    }
+
+    // Mark notification as read
+    await dbManager.markNotificationAsRead(notifId, req.user!.id);
+
+    if (invitation) {
+      RealtimeManager.broadcast(invitation.projectId, {
+        type: "invitations_updated",
+        projectId: invitation.projectId
+      });
+    }
+
+    res.json({ message: "Invitation rejected." });
+  } catch (error) {
+    next(error);
   }
 });

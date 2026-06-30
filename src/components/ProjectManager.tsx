@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, TextArea, Badge, Modal } from "./UI";
-import { Plus, Search, Key, Trash2, Edit, ExternalLink, GitBranch, Database, ShieldAlert, ShieldCheck, X } from "lucide-react";
+import { Plus, Search, Key, Trash2, Edit, ExternalLink, GitBranch, Database, ShieldAlert, ShieldCheck, X, Users } from "lucide-react";
 import { Project, ProjectStatus, ProjectPriority } from "../types";
+import { TeamPage } from "./TeamPage";
 
 export const ProjectManager: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -18,6 +19,7 @@ export const ProjectManager: React.FC = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [activeTeamProject, setActiveTeamProject] = useState<{ id: string; name: string } | null>(null);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -227,6 +229,19 @@ export const ProjectManager: React.FC = () => {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
+  if (activeTeamProject) {
+    return (
+      <TeamPage
+        projectId={activeTeamProject.id}
+        projectName={activeTeamProject.name}
+        onClose={() => {
+          setActiveTeamProject(null);
+          fetchProjects();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 w-full pb-10">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -334,6 +349,9 @@ export const ProjectManager: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => setActiveTeamProject({ id: p.id, name: p.name })} title="Manage Team">
+                      <Users className="h-3.5 w-3.5 text-indigo-500" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(p)} title="Edit Project">
                       <Edit className="h-3.5 w-3.5" />
                     </Button>

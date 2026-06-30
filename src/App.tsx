@@ -21,6 +21,7 @@ import { BugTracker } from "./components/BugTracker";
 import { DeploymentManager } from "./components/DeploymentManager";
 import { DocumentationGen } from "./components/DocumentationGen";
 import { SettingsPage } from "./components/SettingsPage";
+import { NotificationsPage } from "./components/NotificationsPage";
 
 import {
   LayoutDashboard,
@@ -49,7 +50,8 @@ import {
   BookOpen,
   Loader2,
   Sun,
-  Moon
+  Moon,
+  Bell
 } from "lucide-react";
 
 // Types for navigation
@@ -65,7 +67,8 @@ type ActiveTab =
   | "bugs"
   | "deployments"
   | "docs"
-  | "settings";
+  | "settings"
+  | "notifications";
 
 function DevVaultWorkspace() {
   const { user, logout, apiFetch } = useAuth();
@@ -94,23 +97,54 @@ function DevVaultWorkspace() {
     }
   }, [theme]);
 
-  // Fetch initial dashboard stats from real Express backend
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await apiFetch("/api/dashboard/stats");
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch (error) {
-        console.error("Failed to load dashboard stats", error);
-      } finally {
-        setLoadingStats(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // Fetch initial dashboard stats and notifications from real Express backend
+  const fetchStats = async () => {
+    try {
+      const res = await apiFetch("/api/dashboard/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
       }
+
+      const notifRes = await apiFetch("/api/notifications");
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        const unreadCount = notifData.filter((n: any) => !n.read).length;
+        setUnreadNotifications(unreadCount);
+      }
+    } catch (error) {
+      console.error("Failed to load dashboard stats", error);
+    } finally {
+      setLoadingStats(false);
     }
+  };
+
+  useEffect(() => {
     fetchStats();
-  }, [apiFetch, activeTab]); // Refresh stats when tabs change (e.g. adding things in other tabs)
+  }, [apiFetch, activeTab]);
+
+  // Hook into Server-Sent Events for Realtime notifications
+  useEffect(() => {
+    const eventSource = new EventSource("/api/realtime");
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "new_notification" || data.type === "my_role_changed" || data.type === "removed_from_project") {
+          toast(data.message || "New notification received!", "info");
+          fetchStats();
+        }
+      } catch (err) {
+        console.error("SSE parsing error in App:", err);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [apiFetch]);
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, confirmed: true },
@@ -124,6 +158,7 @@ function DevVaultWorkspace() {
     { id: "bugs", label: "Bug Tracker", icon: <Bug className="h-4 w-4" />, confirmed: true },
     { id: "deployments", label: "Deployment Manager", icon: <Cpu className="h-4 w-4" />, confirmed: true },
     { id: "docs", label: "Documentation Gen", icon: <BookOpen className="h-4 w-4" />, confirmed: true },
+    { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, confirmed: true },
     { id: "settings", label: "Settings", icon: <Settings className="h-4 w-4" />, confirmed: true },
   ];
 
@@ -134,7 +169,7 @@ function DevVaultWorkspace() {
         <div className="flex flex-col overflow-hidden">
           {/* Sidebar Header / Brand */}
           <div className="flex items-center gap-3 px-5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
-            <div className="flex items-center justify-center p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-600 dark:text-indigo-400 shadow-md">
+            <div className="flex items-center justify-center p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-650 dark:text-indigo-400 shadow-md">
               <Terminal className="h-4 w-4" />
             </div>
             <div>
@@ -156,15 +191,20 @@ function DevVaultWorkspace() {
                   className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group cursor-pointer ${
                     isActive
                       ? "bg-white dark:bg-zinc-800/50 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/50 shadow-sm"
-                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40 border border-transparent"
+                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-850 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40 border border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className={isActive ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-405 dark:text-zinc-500 group-hover:text-zinc-650 dark:group-hover:text-zinc-300"}>
+                    <span className={isActive ? "text-indigo-650 dark:text-indigo-405" : "text-zinc-400 dark:text-zinc-550 group-hover:text-zinc-650 dark:group-hover:text-zinc-300"}>
                       {item.icon}
                     </span>
                     <span>{item.label}</span>
                   </div>
+                  {item.id === "notifications" && unreadNotifications > 0 && (
+                    <span className="bg-indigo-650 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                      {unreadNotifications}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -412,6 +452,7 @@ function DevVaultWorkspace() {
               {activeTab === "bugs" && <BugTracker />}
               {activeTab === "deployments" && <DeploymentManager />}
               {activeTab === "docs" && <DocumentationGen />}
+              {activeTab === "notifications" && <NotificationsPage onRefreshStats={fetchStats} />}
               {activeTab === "settings" && <SettingsPage theme={theme} setTheme={setTheme} />}
             </motion.div>
           </AnimatePresence>
