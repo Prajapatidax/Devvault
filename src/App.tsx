@@ -70,6 +70,38 @@ type ActiveTab =
   | "settings"
   | "notifications";
 
+export function ArtificialLogo({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      {/* Central circle */}
+      <circle cx="50" cy="30" r="8" fill="url(#brandGradient)" />
+      
+      {/* Left connector */}
+      <path d="M50 30 C40 30 35 15 25 15 C15 15 15 30 25 30 C35 30 40 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
+      <path d="M50 30 C40 30 35 45 25 45 C15 45 15 30 25 30 C35 30 40 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
+      
+      {/* Right connector */}
+      <path d="M50 30 C60 30 65 15 75 15 C85 15 85 30 75 30 C65 30 60 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
+      <path d="M50 30 C60 30 65 45 75 45 C85 45 85 30 75 30 C65 30 60 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
+
+      {/* Nodes */}
+      <circle cx="25" cy="15" r="9" fill="url(#brandGradient)" />
+      <circle cx="25" cy="45" r="9" fill="url(#brandGradient)" />
+      <circle cx="75" cy="15" r="9" fill="url(#brandGradient)" />
+      <circle cx="75" cy="45" r="9" fill="url(#brandGradient)" />
+      <circle cx="50" cy="30" r="9" fill="url(#brandGradient)" />
+      
+      <defs>
+        <linearGradient id="brandGradient" x1="15" y1="15" x2="85" y2="45" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ff7b00" />
+          <stop offset="50%" stopColor="#ff5c00" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 function DevVaultWorkspace() {
   const { user, logout, apiFetch } = useAuth();
   const { toast } = useToast();
@@ -163,87 +195,92 @@ function DevVaultWorkspace() {
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-indigo-500/30 transition-colors duration-300">
-      {/* 1. SIDEBAR NAVIGATION */}
-      <aside className="w-64 bg-white/80 dark:bg-zinc-950/60 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between shrink-0 backdrop-blur-md transition-colors duration-300 select-none">
-        <div className="flex flex-col overflow-hidden">
-          {/* Sidebar Header / Brand */}
-          <div className="flex items-center gap-3 px-5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
-            <div className="flex items-center justify-center p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-650 dark:text-indigo-400 shadow-md">
-              <Terminal className="h-4 w-4" />
+    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-2 md:p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
+      {/* Sunbeam gradient top-center */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[350px] bg-gradient-to-b from-orange-500/10 via-amber-400/5 to-transparent blur-[120px] rounded-full pointer-events-none z-0" />
+
+      {/* Main outer border frame */}
+      <div className="flex-1 flex h-full w-full overflow-hidden border-2 md:border-[5px] border-brand-500 rounded-[16px] md:rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
+        {/* 1. SIDEBAR NAVIGATION */}
+        <aside className="w-64 bg-white/80 dark:bg-zinc-950/60 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between shrink-0 backdrop-blur-md transition-colors duration-300 select-none">
+          <div className="flex flex-col overflow-hidden">
+            {/* Sidebar Header / Brand */}
+            <div className="flex items-center gap-1.5 px-4.5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
+              <div className="flex items-center justify-center p-1 bg-transparent text-brand-500">
+                <ArtificialLogo className="h-7 w-12" />
+              </div>
+              <div>
+                <span className="font-bold text-sm tracking-tight text-zinc-850 dark:text-white">Artificial</span>
+                <span className="block text-[10px] text-zinc-500 font-mono">v1.0.0-beta</span>
+              </div>
             </div>
-            <div>
-              <span className="font-semibold text-sm tracking-tight text-zinc-800 dark:text-white">DevVault</span>
-              <span className="block text-[10px] text-zinc-500 font-mono">v1.0.0-beta</span>
-            </div>
+
+            {/* Navigation Links */}
+            <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as ActiveTab);
+                    }}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group cursor-pointer ${
+                      isActive
+                        ? "bg-white dark:bg-zinc-800/50 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/50 shadow-sm"
+                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-850 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40 border border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className={isActive ? "text-indigo-650 dark:text-indigo-405" : "text-zinc-400 dark:text-zinc-550 group-hover:text-zinc-650 dark:group-hover:text-zinc-300"}>
+                        {item.icon}
+                      </span>
+                      <span>{item.label}</span>
+                    </div>
+                    {item.id === "notifications" && unreadNotifications > 0 && (
+                      <span className="bg-indigo-650 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {unreadNotifications}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as ActiveTab);
-                  }}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group cursor-pointer ${
-                    isActive
-                      ? "bg-white dark:bg-zinc-800/50 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/50 shadow-sm"
-                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-850 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40 border border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className={isActive ? "text-indigo-650 dark:text-indigo-405" : "text-zinc-400 dark:text-zinc-550 group-hover:text-zinc-650 dark:group-hover:text-zinc-300"}>
-                      {item.icon}
-                    </span>
-                    <span>{item.label}</span>
-                  </div>
-                  {item.id === "notifications" && unreadNotifications > 0 && (
-                    <span className="bg-indigo-650 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                      {unreadNotifications}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* User Account Section */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-100/10 dark:bg-zinc-900/10 flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/30 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-300">
-              {user?.name ? user.name[0].toUpperCase() : "U"}
+          {/* User Account Section */}
+          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-100/10 dark:bg-zinc-900/10 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/30 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                {user?.name ? user.name[0].toUpperCase() : "U"}
+              </div>
+              <div className="overflow-hidden">
+                <span className="block text-xs font-semibold text-zinc-800 dark:text-white truncate">{user?.name}</span>
+                <span className="block text-[10px] text-zinc-500 truncate">{user?.email}</span>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <span className="block text-xs font-semibold text-zinc-800 dark:text-white truncate">{user?.name}</span>
-              <span className="block text-[10px] text-zinc-500 truncate">{user?.email}</span>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
+              title="Lock Wallet"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        {/* 2. MAIN CONTENT STAGE */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-zinc-50/30 dark:bg-zinc-950/30 backdrop-blur-sm relative transition-colors duration-300">
+          {/* Background glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none" />
+
+          {/* Global Navbar */}
+          <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">WORKSPACE</span>
+              <ChevronRight className="h-3 w-3 text-zinc-300 dark:text-zinc-700" />
+              <Badge variant="violet">DEV_VAULT_STAGE_2</Badge>
             </div>
-          </div>
-          <button
-            onClick={logout}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
-            title="Lock Wallet"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </aside>
-
-      {/* 2. MAIN CONTENT STAGE */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-zinc-50/50 dark:bg-zinc-950/50 backdrop-blur-sm relative transition-colors duration-300">
-        {/* Background glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none" />
-
-        {/* Global Navbar */}
-        <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">WORKSPACE</span>
-            <ChevronRight className="h-3 w-3 text-zinc-300 dark:text-zinc-700" />
-            <Badge variant="violet">DEV_VAULT_STAGE_2</Badge>
-          </div>
 
           <div className="flex items-center gap-4.5">
             {/* Real-time server uptime feedback */}
@@ -265,7 +302,7 @@ function DevVaultWorkspace() {
               className="p-2 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900/50 transition-colors cursor-pointer"
               title="Toggle Theme Mode"
             >
-              {theme === "dark" ? <Sun className="h-4 w-4 text-indigo-400" /> : <Moon className="h-4 w-4 text-indigo-600" />}
+              {theme === "dark" ? <Sun className="h-4 w-4 text-brand-500" /> : <Moon className="h-4 w-4 text-brand-600" />}
             </button>
 
             <Button size="sm" variant="ghost" onClick={() => toast("Quick search global filter integration coming in beta 2!", "info")}>
@@ -291,8 +328,8 @@ function DevVaultWorkspace() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/30 backdrop-blur-md shadow-sm">
                     <div>
                       <h2 className="text-xl font-bold text-zinc-800 dark:text-white tracking-tight flex items-center gap-2">
-                        Welcome to your DevVault, <span className="text-indigo-650 dark:text-indigo-400">{user?.name}</span>
-                        <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                        Welcome to Artificial, <span className="text-brand-500">{user?.name}</span>
+                        <Sparkles className="h-4 w-4 text-brand-500 animate-pulse" />
                       </h2>
                       <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1">
                         All modules have been successfully unsealed. Your projects, secrets, API packets, and notes are online and protected.
@@ -458,6 +495,7 @@ function DevVaultWorkspace() {
           </AnimatePresence>
         </div>
       </main>
+      </div> {/* extra wrapper end */}
     </div>
   );
 }
@@ -467,8 +505,8 @@ function MainWorkspace() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] font-mono text-xs text-zinc-550 dark:text-zinc-500 gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-indigo-650 dark:text-indigo-500" />
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#0d0c0a] font-mono text-xs text-zinc-550 dark:text-zinc-500 gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-brand-500" />
         <span>DECRYPTING VAULT SECTORS...</span>
       </div>
     );

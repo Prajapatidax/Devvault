@@ -8,6 +8,7 @@ import { useAuth } from "./AuthContext";
 import { useToast, Button, Input } from "./UI";
 import { motion } from "motion/react";
 import { Terminal, Lock, Mail, User, ShieldCheck } from "lucide-react";
+import { ArtificialLogo } from "../App";
 
 export const AuthPage: React.FC = () => {
   const { login, register } = useAuth();
@@ -30,7 +31,7 @@ export const AuthPage: React.FC = () => {
     try {
       if (isLogin) {
         await login(email, password);
-        toast("Welcome back to DevVault!", "success");
+        toast("Welcome back to Artificial!", "success");
       } else {
         await register(email, password, name);
         toast("Workspace successfully created!", "success");
@@ -43,10 +44,10 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100/40 dark:bg-zinc-950/20 relative overflow-hidden px-4 transition-colors duration-300">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-100/30 dark:bg-zinc-950/20 relative overflow-hidden px-4 transition-colors duration-300">
       {/* Visual background accents */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-emerald-600/5 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-brand-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-amber-500/5 blur-[150px] rounded-full pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -56,11 +57,11 @@ export const AuthPage: React.FC = () => {
       >
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3.5 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl mb-4 text-indigo-600 dark:text-indigo-400 shadow-inner backdrop-blur-sm">
-            <Terminal className="h-6 w-6" />
+          <div className="inline-flex items-center justify-center p-2 bg-transparent mb-2 text-brand-500">
+            <ArtificialLogo className="h-10 w-16" />
           </div>
           <h1 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 tracking-tight font-sans">
-            DevVault
+            Artificial
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 font-mono mt-1 select-none">
             One place for everything a developer needs.
