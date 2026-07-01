@@ -22,7 +22,8 @@ import {
   ProjectMember,
   Invitation,
   Notification,
-  ActivityLog
+  ActivityLog,
+  EmailVerification
 } from "./types";
 
 const DB_FILE = path.join(process.cwd(), "server", "db.json");
@@ -47,6 +48,7 @@ interface DatabaseSchema {
   invitations: Invitation[];
   notifications: Notification[];
   activityLogs: ActivityLog[];
+  emailVerifications: EmailVerification[];
 }
 
 const initialDb: DatabaseSchema = {
@@ -62,7 +64,8 @@ const initialDb: DatabaseSchema = {
   projectMembers: [],
   invitations: [],
   notifications: [],
-  activityLogs: []
+  activityLogs: [],
+  emailVerifications: []
 };
 
 // Encryption secret - derived from env or static fallback for development
@@ -187,9 +190,13 @@ class DatabaseManager {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
+        email_verified BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`,
+
+      // Alter users to add email_verified if it doesn't exist (handles existing databases)
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;`,
 
       // 2. Projects
       `CREATE TABLE IF NOT EXISTS projects (
@@ -357,6 +364,16 @@ class DatabaseManager {
         action TEXT NOT NULL,
         details TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      // 14. Email Verifications
+      `CREATE TABLE IF NOT EXISTS email_verification (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        otp_hash TEXT NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`
     ];
 
@@ -462,8 +479,8 @@ class DatabaseManager {
   async createUser(user: User): Promise<User> {
     if (this.usePostgres) {
       await this.pool!.query(
-        "INSERT INTO users (id, email, password_hash, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-        [user.id, user.email, user.passwordHash, user.name, user.createdAt, user.updatedAt]
+        "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        [user.id, user.email, user.passwordHash, user.name, user.emailVerified ?? false, user.createdAt, user.updatedAt]
       );
       return user;
     }
@@ -1232,6 +1249,7 @@ class DatabaseManager {
       const invitations = await this.pool!.query("SELECT * FROM invitations");
       const notifications = await this.pool!.query("SELECT * FROM notifications");
       const activityLogs = await this.pool!.query("SELECT * FROM activity_logs");
+      const emailVerifications = await this.pool!.query("SELECT * FROM email_verification");
 
       return {
         users: users.rows.map(toCamel),
@@ -1246,10 +1264,15 @@ class DatabaseManager {
         projectMembers: projectMembers.rows.map(toCamel),
         invitations: invitations.rows.map(toCamel),
         notifications: notifications.rows.map(toCamel),
-        activityLogs: activityLogs.rows.map(toCamel)
+        activityLogs: activityLogs.rows.map(toCamel),
+        emailVerifications: emailVerifications.rows.map(toCamel)
       };
     }
-    return this.readJson();
+    const raw = this.readJson();
+    return {
+      ...raw,
+      emailVerifications: raw.emailVerifications || []
+    };
   }
 
   async importRawData(newData: any): Promise<void> {
@@ -1268,6 +1291,7 @@ class DatabaseManager {
       if (newData.invitations) db.invitations = newData.invitations;
       if (newData.notifications) db.notifications = newData.notifications;
       if (newData.activityLogs) db.activityLogs = newData.activityLogs;
+      if (newData.emailVerifications) db.emailVerifications = newData.emailVerifications;
       this.writeJson();
       return;
     }
@@ -1277,6 +1301,7 @@ class DatabaseManager {
       await client.query("BEGIN");
 
       // Delete references first, then parent tables
+      await client.query("DELETE FROM email_verification");
       await client.query("DELETE FROM notifications");
       await client.query("DELETE FROM activity_logs");
       await client.query("DELETE FROM invitations");
@@ -1295,8 +1320,8 @@ class DatabaseManager {
       if (Array.isArray(newData.users)) {
         for (const u of newData.users) {
           await client.query(
-            "INSERT INTO users (id, email, password_hash, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-            [u.id, u.email, u.passwordHash, u.name, u.createdAt, u.updatedAt]
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [u.id, u.email, u.passwordHash, u.name, u.emailVerified ?? false, u.createdAt, u.updatedAt]
           );
         }
       }
@@ -1507,6 +1532,16 @@ class DatabaseManager {
           await client.query(
             "INSERT INTO activity_logs (id, project_id, user_id, action, details, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
             [log.id, log.projectId, log.userId, log.action, log.details, log.createdAt]
+          );
+        }
+      }
+
+      // Insert Email Verifications
+      if (Array.isArray(newData.emailVerifications)) {
+        for (const ev of newData.emailVerifications) {
+          await client.query(
+            "INSERT INTO email_verification (id, user_id, otp_hash, expires_at, attempts, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            [ev.id, ev.userId, ev.otpHash, ev.expiresAt, ev.attempts || 0, ev.createdAt]
           );
         }
       }
@@ -1853,6 +1888,125 @@ class DatabaseManager {
         return { ...l, userName: user?.name };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  // --- Email Verification CRUD ---
+  async getEmailVerification(userId: string): Promise<EmailVerification | undefined> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "SELECT * FROM email_verification WHERE user_id = $1 LIMIT 1",
+        [userId]
+      );
+      return res.rows[0] ? toCamel<EmailVerification>(res.rows[0]) : undefined;
+    }
+    const db = this.readJson();
+    db.emailVerifications = db.emailVerifications || [];
+    return db.emailVerifications.find((ev) => ev.userId === userId);
+  }
+
+  async createEmailVerification(verification: EmailVerification): Promise<EmailVerification> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        "INSERT INTO email_verification (id, user_id, otp_hash, expires_at, attempts, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+        [
+          verification.id,
+          verification.userId,
+          verification.otpHash,
+          verification.expiresAt,
+          verification.attempts,
+          verification.createdAt
+        ]
+      );
+      return verification;
+    }
+    const db = this.readJson();
+    db.emailVerifications = db.emailVerifications || [];
+    // Remove existing for this user if any
+    db.emailVerifications = db.emailVerifications.filter((ev) => ev.userId !== verification.userId);
+    db.emailVerifications.push(verification);
+    this.writeJson();
+    return verification;
+  }
+
+  async deleteEmailVerification(userId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "DELETE FROM email_verification WHERE user_id = $1",
+        [userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    db.emailVerifications = db.emailVerifications || [];
+    const len = db.emailVerifications.length;
+    db.emailVerifications = db.emailVerifications.filter((ev) => ev.userId !== userId);
+    const success = db.emailVerifications.length < len;
+    if (success) this.writeJson();
+    return success;
+  }
+
+  async updateEmailVerificationAttempts(userId: string, attempts: number): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "UPDATE email_verification SET attempts = $1 WHERE user_id = $2",
+        [attempts, userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    db.emailVerifications = db.emailVerifications || [];
+    const index = db.emailVerifications.findIndex((ev) => ev.userId === userId);
+    if (index === -1) return false;
+    db.emailVerifications[index].attempts = attempts;
+    this.writeJson();
+    return true;
+  }
+
+  async verifyUserEmail(userId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query(
+        "UPDATE users SET email_verified = TRUE, updated_at = $1 WHERE id = $2",
+        [new Date().toISOString(), userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const index = db.users.findIndex((u) => u.id === userId);
+    if (index === -1) return false;
+    db.users[index].emailVerified = true;
+    db.users[index].updatedAt = new Date().toISOString();
+    this.writeJson();
+    return true;
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    if (this.usePostgres) {
+      const res = await this.pool!.query("DELETE FROM users WHERE id = $1", [userId]);
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    const len = db.users.length;
+    db.users = db.users.filter((u) => u.id !== userId);
+    const success = db.users.length < len;
+    if (success) this.writeJson();
+    return success;
+  }
+
+  async cleanExpiredEmailVerifications(): Promise<void> {
+    if (this.usePostgres) {
+      await this.pool!.query(
+        "DELETE FROM email_verification WHERE expires_at < CURRENT_TIMESTAMP"
+      );
+      return;
+    }
+    const db = this.readJson();
+    db.emailVerifications = db.emailVerifications || [];
+    const len = db.emailVerifications.length;
+    const nowStr = new Date().toISOString();
+    db.emailVerifications = db.emailVerifications.filter((ev) => ev.expiresAt > nowStr);
+    if (db.emailVerifications.length < len) {
+      this.writeJson();
+    }
   }
 }
 

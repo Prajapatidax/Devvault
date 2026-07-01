@@ -16,6 +16,15 @@ async function startServer() {
   // Initialize database (Postgres or local JSON fallback)
   await dbManager.initialize();
 
+  // Schedule background cleanup for expired OTP records (runs every 10 minutes)
+  setInterval(async () => {
+    try {
+      await dbManager.cleanExpiredEmailVerifications();
+    } catch (err) {
+      console.error("[CLEANUP] Failed to run expired email verifications cleanup:", err);
+    }
+  }, 10 * 60 * 1000);
+
   const app = express();
   const PORT = 3000;
 

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./components/AuthContext";
 import { ToastProvider, useToast, Button, Badge } from "./components/UI";
 import { AuthPage } from "./components/AuthPage";
+import { VerifyEmailPage } from "./components/VerifyEmailPage";
 import { motion, AnimatePresence } from "motion/react";
 
 // Page Components
@@ -501,7 +502,7 @@ function DevVaultWorkspace() {
 }
 
 function MainWorkspace() {
-  const { user, loading } = useAuth();
+  const { user, loading, verifyingEmail } = useAuth();
 
   if (loading) {
     return (
@@ -510,6 +511,10 @@ function MainWorkspace() {
         <span>DECRYPTING VAULT SECTORS...</span>
       </div>
     );
+  }
+
+  if (verifyingEmail) {
+    return <VerifyEmailPage />;
   }
 
   return user ? <DevVaultWorkspace /> : <AuthPage />;

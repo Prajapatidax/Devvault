@@ -9,6 +9,7 @@ export interface User {
   name: string;
   createdAt: string;
   updatedAt: string;
+  emailVerified?: boolean;
 }
 
 export enum ProjectStatus {

@@ -14,6 +14,10 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  verifyingEmail: string | null;
+  setVerifyingEmail: (email: string | null) => void;
+  verifyEmail: (email: string, otp: string) => Promise<void>;
+  resendOtp: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
 
   // Restore session from localStorage on load
   useEffect(() => {
@@ -46,6 +51,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 403 && data.error === "email_not_verified") {
+          setVerifyingEmail(email);
+        }
         throw new Error(data.error || "Login failed");
       }
 
@@ -53,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem("devvault_user", JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
+      setVerifyingEmail(null);
     } finally {
       setLoading(false);
     }
@@ -72,12 +81,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.error || "Registration failed");
       }
 
+      // Registration successful. Set verification state so we show OTP Verify UI
+      setVerifyingEmail(email);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmail = async (email: string, otp: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed");
+      }
+
       localStorage.setItem("devvault_token", data.token);
       localStorage.setItem("devvault_user", JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
+      setVerifyingEmail(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resendOtp = async (email: string) => {
+    const res = await fetch("/api/auth/resend-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to resend code");
     }
   };
 
@@ -86,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("devvault_user");
     setToken(null);
     setUser(null);
+    setVerifyingEmail(null);
   };
 
   /**
@@ -112,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, apiFetch }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, apiFetch, verifyingEmail, setVerifyingEmail, verifyEmail, resendOtp }}>
       {children}
     </AuthContext.Provider>
   );

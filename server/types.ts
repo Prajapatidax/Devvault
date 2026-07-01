@@ -10,6 +10,16 @@ export interface User {
   name: string;
   createdAt: string;
   updatedAt: string;
+  emailVerified?: boolean;
+}
+
+export interface EmailVerification {
+  id: string;
+  userId: string;
+  otpHash: string;
+  expiresAt: string;
+  attempts: number;
+  createdAt: string;
 }
 
 export enum ProjectStatus {

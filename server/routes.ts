@@ -11,6 +11,7 @@ import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, 
 import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
 import { fetchGithubStats } from "./github";
+import { sendOtpEmail } from "./mail";
 
 export const apiRouter = Router();
 
@@ -49,7 +50,50 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 // AUTHENTICATION ENDPOINTS
 // ==========================================
 
-apiRouter.post("/auth/register", async (req: Request, res: Response, next: NextFunction) => {
+// Simple in-memory rate-limiter map to prevent brute-force attacks
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+const rateLimitStore = new Map<string, RateLimitRecord>();
+
+function customRateLimit(windowMs: number, maxRequests: number, keyPrefix: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown-ip";
+    const email = req.body?.email ? String(req.body.email).toLowerCase().trim() : "";
+    const key = `${keyPrefix}:${email || ip}`;
+    const now = Date.now();
+    const record = rateLimitStore.get(key);
+
+    if (!record) {
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+
+    if (now > record.resetTime) {
+      record.count = 1;
+      record.resetTime = now + windowMs;
+      return next();
+    }
+
+    record.count++;
+    if (record.count > maxRequests) {
+      console.warn(`[RateLimit] Blocked request for key: ${key}. Count: ${record.count}`);
+      return res.status(429).json({
+        error: "Too many requests. Please wait a few minutes and try again."
+      });
+    }
+
+    next();
+  };
+}
+
+// Config variables with env support
+const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || "10", 10);
+const RESEND_WAIT_SECONDS = parseInt(process.env.RESEND_WAIT_SECONDS || "60", 10);
+const MAX_OTP_ATTEMPTS = parseInt(process.env.MAX_OTP_ATTEMPTS || "5", 10);
+
+apiRouter.post("/auth/register", customRateLimit(900000, 5, "register"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password, name } = req.body;
 
@@ -58,7 +102,7 @@ apiRouter.post("/auth/register", async (req: Request, res: Response, next: NextF
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+      return res.status(400).json({ error: "Master Master decrypt key must be at least 6 characters" });
     }
 
     const existingUser = await dbManager.getUserByEmail(email);
@@ -71,15 +115,44 @@ apiRouter.post("/auth/register", async (req: Request, res: Response, next: NextF
       email: email.trim().toLowerCase(),
       passwordHash: hashPassword(password),
       name: name.trim(),
+      emailVerified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     await dbManager.createUser(newUser);
 
-    const token = signToken({ userId: newUser.id });
-    const { passwordHash, ...userResponse } = newUser;
-    res.status(201).json({ token, user: userResponse });
+    // Cryptographically secure 6-digit numeric OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+    const verification = {
+      id: crypto.randomUUID(),
+      userId: newUser.id,
+      otpHash,
+      expiresAt,
+      attempts: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    await dbManager.createEmailVerification(verification);
+
+    try {
+      await sendOtpEmail(newUser.email, otp);
+      console.log(`[AUTH] Verification OTP sent successfully to ${newUser.email}`);
+      res.status(201).json({ 
+        message: "Registration successful. Please verify your email.", 
+        email: newUser.email 
+      });
+    } catch (mailError) {
+      console.error(`[AUTH] Failed to send registration OTP email. Deleting partial registration for ${newUser.email}:`, mailError);
+      await dbManager.deleteEmailVerification(newUser.id);
+      await dbManager.deleteUser(newUser.id);
+      res.status(500).json({ 
+        error: "Failed to send verification email. Please verify your SMTP settings or email address and try again." 
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -98,9 +171,235 @@ apiRouter.post("/auth/login", async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Do not allow login until email_verified == true
+    if (!user.emailVerified) {
+      console.warn(`[AUTH] Login blocked for unverified user: ${email}`);
+      return res.status(403).json({
+        error: "email_not_verified",
+        email: user.email,
+        message: "Please verify your email address to access your account."
+      });
+    }
+
     const token = signToken({ userId: user.id });
     const { passwordHash, ...userResponse } = user;
     res.json({ token, user: userResponse });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Send OTP manual request (e.g. from prompt)
+apiRouter.post("/auth/send-otp", customRateLimit(300000, 3, "send-otp"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await dbManager.getUserByEmail(email);
+    if (!user) {
+      // Security: Do not expose whether an email exists
+      return res.json({ message: "If the email is registered, a verification code has been sent." });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: "Email is already verified" });
+    }
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+    const verification = {
+      id: crypto.randomUUID(),
+      userId: user.id,
+      otpHash,
+      expiresAt,
+      attempts: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    await dbManager.createEmailVerification(verification);
+
+    try {
+      await sendOtpEmail(user.email, otp);
+      console.log(`[AUTH] Manual verification OTP sent to ${user.email}`);
+      res.json({ message: "Verification code sent." });
+    } catch (mailError) {
+      console.error(`[AUTH] Failed to send manual OTP:`, mailError);
+      res.status(500).json({ error: "Failed to send verification email. Please try again." });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify Email endpoint
+apiRouter.post("/auth/verify-email", customRateLimit(600000, 10, "verify-email"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    if (!otp) {
+      return res.status(400).json({ error: "Verification code is required" });
+    }
+
+    if (!/^\d+$/.test(otp)) {
+      return res.status(400).json({ error: "Verification code must contain digits only" });
+    }
+
+    if (otp.length !== 6) {
+      return res.status(400).json({ error: "Verification code must be exactly 6 digits" });
+    }
+
+    const user = await dbManager.getUserByEmail(email);
+    if (!user) {
+      // Security: Do not expose email existence
+      return res.status(400).json({ error: "Invalid email or verification code" });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: "Email is already verified" });
+    }
+
+    const verification = await dbManager.getEmailVerification(user.id);
+    if (!verification) {
+      return res.status(400).json({ error: "Invalid email or verification code" });
+    }
+
+    // Check locking
+    if (verification.attempts >= MAX_OTP_ATTEMPTS) {
+      console.warn(`[AUTH] Blocked verification attempt for locked account: ${email}`);
+      return res.status(400).json({ 
+        error: "Verification code locked. Please request a new verification code." 
+      });
+    }
+
+    // Check expiration
+    if (new Date(verification.expiresAt).getTime() < Date.now()) {
+      console.log(`[AUTH] Expired OTP verify attempt for user: ${email}`);
+      return res.status(400).json({ 
+        error: "Verification code has expired. Please request a new code." 
+      });
+    }
+
+    // Constant-time comparison
+    const inputHash = crypto.createHash("sha256").update(otp).digest();
+    const storedHash = Buffer.from(verification.otpHash, "hex");
+
+    if (storedHash.length !== 32) {
+      return res.status(400).json({ error: "Invalid email or verification code" });
+    }
+
+    const isMatch = crypto.timingSafeEqual(inputHash, storedHash);
+
+    if (isMatch) {
+      // Success
+      await dbManager.verifyUserEmail(user.id);
+      await dbManager.deleteEmailVerification(user.id);
+      console.log(`[AUTH] User email verified successfully: ${email}`);
+
+      // Log OTP verified
+      const token = signToken({ userId: user.id });
+      const { passwordHash, ...userResponse } = { ...user, emailVerified: true };
+      res.json({ token, user: userResponse });
+    } else {
+      // Failure
+      const newAttempts = verification.attempts + 1;
+      await dbManager.updateEmailVerificationAttempts(user.id, newAttempts);
+      console.log(`[AUTH] Failed verification attempt count: ${newAttempts} for user: ${email}`);
+
+      if (newAttempts >= MAX_OTP_ATTEMPTS) {
+        return res.status(400).json({ 
+          error: "Invalid verification code. Maximum attempts reached. Verification code locked." 
+        });
+      }
+
+      res.status(400).json({ 
+        error: `Invalid verification code. ${MAX_OTP_ATTEMPTS - newAttempts} attempts remaining.` 
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Resend OTP endpoint
+apiRouter.post("/auth/resend-otp", customRateLimit(300000, 3, "resend-otp"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await dbManager.getUserByEmail(email);
+    if (!user) {
+      return res.json({ message: "If the email is registered, a new verification code has been sent." });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: "Email is already verified" });
+    }
+
+    const verification = await dbManager.getEmailVerification(user.id);
+    if (verification) {
+      const waitTime = Date.now() - new Date(verification.createdAt).getTime();
+      if (waitTime < RESEND_WAIT_SECONDS * 1000) {
+        const remaining = Math.ceil(RESEND_WAIT_SECONDS - waitTime / 1000);
+        return res.status(429).json({ 
+          error: `Please wait ${remaining} seconds before requesting a new code.` 
+        });
+      }
+      // Delete old OTP record
+      await dbManager.deleteEmailVerification(user.id);
+    }
+
+    // Generate new OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+    const newVerification = {
+      id: crypto.randomUUID(),
+      userId: user.id,
+      otpHash,
+      expiresAt,
+      attempts: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    await dbManager.createEmailVerification(newVerification);
+    console.log(`[AUTH] Resend requested. Previous OTP invalidated for ${user.email}`);
+
+    try {
+      await sendOtpEmail(user.email, otp);
+      res.json({ message: "A new verification code has been sent." });
+    } catch (mailError) {
+      console.error(`[AUTH] Failed to send manual OTP:`, mailError);
+      res.status(500).json({ error: "Failed to send verification email. Please try again." });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verification status endpoint
+apiRouter.get("/auth/verification-status", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = String(req.query.email || "");
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await dbManager.getUserByEmail(email);
+    if (user && user.emailVerified) {
+      return res.json({ verified: true });
+    }
+    res.json({ verified: false });
   } catch (error) {
     next(error);
   }
