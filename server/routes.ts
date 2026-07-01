@@ -11,7 +11,7 @@ import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, 
 import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
 import { fetchGithubStats } from "./github";
-import { sendOtpEmail } from "./mail";
+import { emailService } from "./email";
 
 export const apiRouter = Router();
 
@@ -139,7 +139,7 @@ apiRouter.post("/auth/register", customRateLimit(900000, 5, "register"), async (
     await dbManager.createEmailVerification(verification);
 
     try {
-      await sendOtpEmail(newUser.email, otp);
+      await emailService.sendVerificationEmail(newUser.email, otp);
       console.log(`[AUTH] Verification OTP sent successfully to ${newUser.email}`);
       res.status(201).json({ 
         message: "Registration successful. Please verify your email.", 
@@ -223,7 +223,7 @@ apiRouter.post("/auth/send-otp", customRateLimit(300000, 3, "send-otp"), async (
     await dbManager.createEmailVerification(verification);
 
     try {
-      await sendOtpEmail(user.email, otp);
+      await emailService.sendVerificationEmail(user.email, otp);
       console.log(`[AUTH] Manual verification OTP sent to ${user.email}`);
       res.json({ message: "Verification code sent." });
     } catch (mailError) {
@@ -376,7 +376,7 @@ apiRouter.post("/auth/resend-otp", customRateLimit(300000, 3, "resend-otp"), asy
     console.log(`[AUTH] Resend requested. Previous OTP invalidated for ${user.email}`);
 
     try {
-      await sendOtpEmail(user.email, otp);
+      await emailService.sendVerificationEmail(user.email, otp);
       res.json({ message: "A new verification code has been sent." });
     } catch (mailError) {
       console.error(`[AUTH] Failed to send manual OTP:`, mailError);
