@@ -10,7 +10,11 @@ import { motion } from "motion/react";
 import { Terminal, Lock, Mail, User, ShieldCheck } from "lucide-react";
 import { ArtificialLogo } from "../App";
 
-export const AuthPage: React.FC = () => {
+interface AuthPageProps {
+  onBackToLanding?: () => void;
+}
+
+export const AuthPage: React.FC<AuthPageProps> = ({ onBackToLanding }) => {
   const { login, register } = useAuth();
   const { toast } = useToast();
 
@@ -156,6 +160,17 @@ export const AuthPage: React.FC = () => {
             </Button>
           </form>
         </div>
+
+        {onBackToLanding && (
+          <div className="text-center mt-4">
+            <button
+              onClick={onBackToLanding}
+              className="text-xs text-indigo-650 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-semibold cursor-pointer outline-none bg-transparent border-0"
+            >
+              ← Back to Landing Page
+            </button>
+          </div>
+        )}
 
         {/* Security Footprint */}
         <div className="flex items-center justify-center gap-2 text-center mt-6 text-[11px] text-zinc-550 dark:text-zinc-600 font-mono">

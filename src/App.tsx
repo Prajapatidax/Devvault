@@ -23,6 +23,7 @@ import { DeploymentManager } from "./components/DeploymentManager";
 import { DocumentationGen } from "./components/DocumentationGen";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotificationsPage } from "./components/NotificationsPage";
+import { LandingPage } from "./components/LandingPage";
 
 import {
   LayoutDashboard,
@@ -52,7 +53,8 @@ import {
   Loader2,
   Sun,
   Moon,
-  Bell
+  Bell,
+  HelpCircle
 } from "lucide-react";
 
 // Types for navigation
@@ -69,7 +71,8 @@ type ActiveTab =
   | "deployments"
   | "docs"
   | "settings"
-  | "notifications";
+  | "notifications"
+  | "tour";
 
 export function ArtificialLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -193,6 +196,7 @@ function DevVaultWorkspace() {
     { id: "docs", label: "Documentation Gen", icon: <BookOpen className="h-4 w-4" />, confirmed: true },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, confirmed: true },
     { id: "settings", label: "Settings", icon: <Settings className="h-4 w-4" />, confirmed: true },
+    { id: "tour", label: "Platform Tour", icon: <HelpCircle className="h-4 w-4" />, confirmed: true },
   ];
 
   return (
@@ -492,6 +496,7 @@ function DevVaultWorkspace() {
               {activeTab === "docs" && <DocumentationGen />}
               {activeTab === "notifications" && <NotificationsPage onRefreshStats={fetchStats} />}
               {activeTab === "settings" && <SettingsPage theme={theme} setTheme={setTheme} />}
+              {activeTab === "tour" && <LandingPage onEnterApp={() => {}} isWorkspaceView={true} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -503,6 +508,7 @@ function DevVaultWorkspace() {
 
 function MainWorkspace() {
   const { user, loading, verifyingEmail } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
 
   if (loading) {
     return (
@@ -517,7 +523,15 @@ function MainWorkspace() {
     return <VerifyEmailPage />;
   }
 
-  return user ? <DevVaultWorkspace /> : <AuthPage />;
+  if (user) {
+    return <DevVaultWorkspace />;
+  }
+
+  return showAuth ? (
+    <AuthPage onBackToLanding={() => setShowAuth(false)} />
+  ) : (
+    <LandingPage onEnterApp={() => setShowAuth(true)} />
+  );
 }
 
 export default function App() {

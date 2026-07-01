@@ -5,6 +5,8 @@
 
 import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { dbManager, encrypt, decrypt } from "./db";
 import { signToken, verifyToken, hashPassword, verifyPassword } from "./auth";
 import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog } from "./types";
@@ -1904,3 +1906,69 @@ apiRouter.post("/notifications/:id/reject", requireAuth, async (req: Authenticat
     next(error);
   }
 });
+
+// File to store the landing video URL/ID
+const VIDEO_CONFIG_FILE = path.join(process.cwd(), "server", "landing_video.json");
+
+// Helper to extract YouTube video ID from URL
+function getYouTubeId(url: string): string | null {
+  if (!url) return null;
+  
+  // If it's already a 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+    return url;
+  }
+  
+  // Extract from various YouTube URL patterns
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
+apiRouter.get("/landing-video", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    let videoId = "SqcY0GlETPk"; // Default placeholder: DevVault guide/react tutorial
+    let videoUrl = "https://www.youtube.com/watch?v=SqcY0GlETPk";
+
+    if (fs.existsSync(VIDEO_CONFIG_FILE)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(VIDEO_CONFIG_FILE, "utf8"));
+        if (config.videoId) {
+          videoId = config.videoId;
+        }
+        if (config.videoUrl) {
+          videoUrl = config.videoUrl;
+        }
+      } catch (err) {
+        console.error("Error reading landing video config file:", err);
+      }
+    }
+
+    res.json({ videoId, videoUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/landing-video", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { videoUrl } = req.body;
+    if (!videoUrl) {
+      return res.status(400).json({ error: "Video URL is required" });
+    }
+
+    const videoId = getYouTubeId(videoUrl);
+    if (!videoId) {
+      return res.status(400).json({ error: "Invalid YouTube URL or Video ID. Must contain an 11-character video ID." });
+    }
+
+    const config = { videoId, videoUrl };
+    fs.writeFileSync(VIDEO_CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
+
+    res.json({ message: "Landing video updated successfully", videoId, videoUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
