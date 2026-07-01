@@ -8,6 +8,7 @@ import { Resend } from "resend";
 // Retrieve configuration variables from environment
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const MAIL_FROM = process.env.MAIL_FROM || "DevVault <onboarding@resend.dev>";
+const APP_URL = process.env.APP_URL || "https://devvault.prajapatidax.co.in";
 
 // Initialize Resend SDK instance
 const resend = new Resend(RESEND_API_KEY);
@@ -166,7 +167,7 @@ class EmailService {
    */
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
     const title = "Reset Your decrypt Key";
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const resetLink = `${APP_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
     
     const contentHtml = `
       <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Reset Your decrypt Key</h2>
@@ -222,7 +223,7 @@ class EmailService {
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Click the button below to access your dashboard:</p>
       
       <div style="text-align: center; margin-bottom: 28px;">
-        <a href="http://localhost:3000" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Launch Vault Dashboard</a>
+        <a href="${APP_URL}" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Launch Vault Dashboard</a>
       </div>
       
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">If you have any questions, feel free to reach out to our team.</p>
@@ -271,7 +272,7 @@ class EmailService {
       </p>
       
       <div style="text-align: center; margin-bottom: 28px; margin-top: 10px;">
-        <a href="http://localhost:3000" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Open Workspace</a>
+        <a href="${APP_URL}" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Open Workspace</a>
       </div>
       
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
@@ -318,7 +319,7 @@ class EmailService {
       </p>
       
       <div style="text-align: center; margin-bottom: 28px; margin-top: 10px;">
-        <a href="http://localhost:3000" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">View Project</a>
+        <a href="${APP_URL}" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">View Project</a>
       </div>
       
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
