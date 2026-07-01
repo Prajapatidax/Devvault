@@ -54,7 +54,9 @@ import {
   Sun,
   Moon,
   Bell,
-  HelpCircle
+  HelpCircle,
+  Menu,
+  X
 } from "lucide-react";
 
 // Types for navigation
@@ -106,32 +108,21 @@ export function ArtificialLogo({ className = "h-6 w-6" }: { className?: string }
   );
 }
 
-function DevVaultWorkspace() {
+function DevVaultWorkspace({
+  theme,
+  setTheme
+}: {
+  theme: "light" | "dark" | "system";
+  setTheme: (t: "light" | "dark" | "system") => void;
+}) {
   const { user, logout, apiFetch } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
-  // Theme state managed in Workspace
-  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
-    return (localStorage.getItem("devvault_theme") as any) || "dark";
-  });
-
-  // Apply Theme effects
-  useEffect(() => {
-    const root = window.document.documentElement;
-    localStorage.setItem("devvault_theme", theme);
-    
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      root.classList.remove("light", "dark");
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.remove("light", "dark");
-      root.classList.add(theme);
-    }
-  }, [theme]);
+  // Mobile sidebar drawer state
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
@@ -200,24 +191,41 @@ function DevVaultWorkspace() {
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
+    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-0 md:p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
       {/* Sunbeam gradient top-center */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[350px] bg-gradient-to-b from-orange-500/10 via-amber-400/5 to-transparent blur-[120px] rounded-full pointer-events-none z-0" />
 
       {/* Main outer border frame */}
-      <div className="flex-1 flex h-full w-full overflow-hidden border-[5px] border-brand-500 rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
+      <div className="flex-1 flex h-full w-full overflow-hidden border-0 md:border-[5px] border-brand-500 rounded-none md:rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
+        {/* Backdrop for mobile sidebar drawer */}
+        {mobileSidebarOpen && (
+          <div 
+            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs md:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* 1. SIDEBAR NAVIGATION */}
-        <aside className="w-64 bg-white/80 dark:bg-zinc-950/60 border-r border-zinc-200 dark:border-zinc-800/80 flex flex-col justify-between shrink-0 backdrop-blur-md transition-colors duration-300 select-none">
+        <aside className={`fixed md:static inset-y-0 left-0 z-45 w-64 bg-white/95 dark:bg-zinc-950/95 border-r border-zinc-200 dark:border-zinc-850 flex flex-col justify-between shrink-0 backdrop-blur-md transition-transform duration-300 select-none md:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex flex-col overflow-hidden">
             {/* Sidebar Header / Brand */}
-            <div className="flex items-center gap-1.5 px-4.5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
-              <div className="flex items-center justify-center p-1 bg-transparent text-brand-500">
-                <ArtificialLogo className="h-7 w-12" />
+            <div className="flex items-center justify-between px-4.5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-center p-1 bg-transparent text-brand-500">
+                  <ArtificialLogo className="h-7 w-12" />
+                </div>
+                <div>
+                  <span className="font-bold text-sm tracking-tight text-zinc-850 dark:text-white">DevVault</span>
+                  <span className="block text-[10px] text-zinc-500 font-mono">v1.0.0-beta</span>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-sm tracking-tight text-zinc-850 dark:text-white">DevVault</span>
-                <span className="block text-[10px] text-zinc-500 font-mono">v1.0.0-beta</span>
-              </div>
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-650 dark:hover:text-white md:hidden cursor-pointer"
+                title="Close Sidebar"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Navigation Links */}
@@ -229,6 +237,7 @@ function DevVaultWorkspace() {
                     key={item.id}
                     onClick={() => {
                       setActiveTab(item.id as ActiveTab);
+                      setMobileSidebarOpen(false);
                     }}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group cursor-pointer ${
                       isActive
@@ -280,10 +289,17 @@ function DevVaultWorkspace() {
           <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none" />
 
           {/* Global Navbar */}
-          <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none">
-            <div className="flex items-center gap-3">
+          <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none">
+            <div className="flex items-center gap-2 md:gap-3">
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 md:hidden cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                title="Open Sidebar"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
               <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">WORKSPACE</span>
-              <ChevronRight className="h-3 w-3 text-zinc-300 dark:text-zinc-700" />
+              <ChevronRight className="h-3 w-3 text-zinc-350 dark:text-zinc-650" />
               <Badge variant="violet">DEV_VAULT_STAGE_2</Badge>
             </div>
 
@@ -496,7 +512,7 @@ function DevVaultWorkspace() {
               {activeTab === "docs" && <DocumentationGen />}
               {activeTab === "notifications" && <NotificationsPage onRefreshStats={fetchStats} />}
               {activeTab === "settings" && <SettingsPage theme={theme} setTheme={setTheme} />}
-              {activeTab === "tour" && <LandingPage onEnterApp={() => {}} isWorkspaceView={true} />}
+              {activeTab === "tour" && <LandingPage onEnterApp={() => {}} isWorkspaceView={true} theme={theme} setTheme={setTheme} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -509,6 +525,24 @@ function DevVaultWorkspace() {
 function MainWorkspace() {
   const { user, loading, verifyingEmail } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
+    return (localStorage.getItem("devvault_theme") as any) || "dark";
+  });
+
+  // Apply Theme effects
+  useEffect(() => {
+    const root = window.document.documentElement;
+    localStorage.setItem("devvault_theme", theme);
+    
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.classList.remove("light", "dark");
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.remove("light", "dark");
+      root.classList.add(theme);
+    }
+  }, [theme]);
 
   if (loading) {
     return (
@@ -524,13 +558,13 @@ function MainWorkspace() {
   }
 
   if (user) {
-    return <DevVaultWorkspace />;
+    return <DevVaultWorkspace theme={theme} setTheme={setTheme} />;
   }
 
   return showAuth ? (
     <AuthPage onBackToLanding={() => setShowAuth(false)} />
   ) : (
-    <LandingPage onEnterApp={() => setShowAuth(true)} />
+    <LandingPage onEnterApp={() => setShowAuth(true)} theme={theme} setTheme={setTheme} />
   );
 }
 
