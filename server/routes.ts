@@ -1711,6 +1711,18 @@ apiRouter.post("/projects/:projectId/invitations", requireAuth, requireProjectPe
       projectId
     });
 
+    // Send Project Invitation Email asynchronously via Resend API
+    try {
+      await emailService.sendProjectInvitationEmail(
+        trimmedEmail,
+        req.user!.name,
+        project?.name || "Collaboration",
+        role
+      );
+    } catch (emailError) {
+      console.error("[Email] Failed to send project invitation email:", emailError);
+    }
+
     res.status(201).json({ message: "Invitation sent successfully." });
   } catch (error) {
     next(error);
@@ -1827,6 +1839,21 @@ apiRouter.post("/notifications/:id/accept", requireAuth, async (req: Authenticat
         userEmail: req.user!.email
       }
     });
+
+    // Send Project Invitation Accepted Email via Resend API
+    try {
+      const inviterUser = await dbManager.getUserById(invitation.inviterId);
+      if (inviterUser) {
+        const project = await dbManager.getProjectById(invitation.projectId, req.user!.id);
+        await emailService.sendInvitationAcceptedEmail(
+          inviterUser.email,
+          req.user!.name,
+          project?.name || "Collaboration"
+        );
+      }
+    } catch (emailError) {
+      console.error("[Email] Failed to send invitation accepted email:", emailError);
+    }
 
     res.json({ message: "Invitation accepted. You are now a project member." });
   } catch (error) {

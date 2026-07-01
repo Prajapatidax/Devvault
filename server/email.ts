@@ -249,6 +249,101 @@ class EmailService {
       throw new Error("Failed to send welcome email via Resend API.");
     }
   }
+
+  /**
+   * Sends an email notification when a user is invited to a project
+   */
+  async sendProjectInvitationEmail(
+    toEmail: string, 
+    inviterName: string, 
+    projectName: string, 
+    role: string
+  ): Promise<void> {
+    const title = "Project Invitation Request";
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Project Invitation Request</h2>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Hello,</p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        <strong>${inviterName}</strong> has invited you to collaborate on the project <strong>"${projectName}"</strong> as a <strong>${role}</strong>.
+      </p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        Please sign in to your DevVault workspace to review and accept this request.
+      </p>
+      
+      <div style="text-align: center; margin-bottom: 28px; margin-top: 10px;">
+        <a href="http://localhost:3000" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Open Workspace</a>
+      </div>
+      
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
+    `;
+
+    const html = getEmailWrapper(title, contentHtml);
+
+    try {
+      console.log(`[Email] Sending project invitation email to ${toEmail}`);
+      const response = await resend.emails.send({
+        from: MAIL_FROM,
+        to: toEmail,
+        subject: `Project Invitation: ${projectName}`,
+        html
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Unknown Resend error");
+      }
+
+      console.log(`[Email] Invitation Email Sent to ${toEmail}. ID: ${response.data?.id}`);
+    } catch (error) {
+      console.error(`[Email] Invitation Email Failed to ${toEmail}:`, error);
+    }
+  }
+
+  /**
+   * Sends an email notification when a user accepts a project invitation
+   */
+  async sendInvitationAcceptedEmail(
+    toEmail: string, 
+    inviteeName: string, 
+    projectName: string
+  ): Promise<void> {
+    const title = "Project Invitation Accepted";
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Invitation Accepted</h2>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Hello,</p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        <strong>${inviteeName}</strong> has accepted your invitation to join the project <strong>"${projectName}"</strong>.
+      </p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        They now have access to collaborate on the project in the workspace.
+      </p>
+      
+      <div style="text-align: center; margin-bottom: 28px; margin-top: 10px;">
+        <a href="http://localhost:3000" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">View Project</a>
+      </div>
+      
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
+    `;
+
+    const html = getEmailWrapper(title, contentHtml);
+
+    try {
+      console.log(`[Email] Sending invitation accepted email to ${toEmail}`);
+      const response = await resend.emails.send({
+        from: MAIL_FROM,
+        to: toEmail,
+        subject: `Invitation Accepted: ${projectName}`,
+        html
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Unknown Resend error");
+      }
+
+      console.log(`[Email] Acceptance Email Sent to ${toEmail}. ID: ${response.data?.id}`);
+    } catch (error) {
+      console.error(`[Email] Acceptance Email Failed to ${toEmail}:`, error);
+    }
+  }
 }
 
 export const emailService = new EmailService();
