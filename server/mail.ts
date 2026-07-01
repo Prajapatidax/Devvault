@@ -21,6 +21,9 @@ const transporter = nodemailer.createTransport({
     user: SMTP_USERNAME,
     pass: SMTP_PASSWORD
   } : undefined,
+  connectionTimeout: 10000, // 10 seconds timeout
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   tls: {
     rejectUnauthorized: false // Avoid issues with self-signed certs in local/relay testing
   }
