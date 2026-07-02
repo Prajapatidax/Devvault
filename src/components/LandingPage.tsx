@@ -60,6 +60,108 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [videoInputUrl, setVideoInputUrl] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [headerHovered, setHeaderHovered] = useState(false);
+
+  // Floating decorative code/cryptographic elements for the background
+  const floatingSymbols = [
+    { char: "{ }", size: "text-sm", top: "15%", left: "10%", delay: 0, duration: 15 },
+    { char: "const", size: "text-xs font-mono", top: "25%", left: "80%", delay: 2, duration: 18 },
+    { char: "[ ]", size: "text-lg", top: "60%", left: "5%", delay: 1, duration: 20 },
+    { char: "import", size: "text-xs font-mono", top: "70%", left: "85%", delay: 4, duration: 16 },
+    { char: "=>", size: "text-sm font-mono", top: "45%", left: "90%", delay: 3, duration: 14 },
+    { char: "&&", size: "text-xs font-mono", top: "80%", left: "15%", delay: 5, duration: 22 },
+    { char: "🔑", size: "text-sm", top: "35%", left: "8%", delay: 1.5, duration: 19 },
+    { char: "🔒", size: "text-xs", top: "50%", left: "78%", delay: 3.5, duration: 17 },
+    { char: "git", size: "text-xs font-mono", top: "10%", left: "70%", delay: 2.5, duration: 21 },
+    { char: "await", size: "text-xs font-mono", top: "85%", left: "72%", delay: 0.5, duration: 23 },
+  ];
+
+  // Scroll reveal variants
+  const cardContainerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 25 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 90,
+        damping: 14
+      }
+    },
+  };
+
+  const sectionRevealVariants = {
+    hidden: { opacity: 0, y: 35 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.7,
+        ease: [0.16, 1, 0.3, 1]
+      }
+    }
+  };
+
+  const listContainerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+      }
+    }
+  };
+
+  const listItemVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    card.style.setProperty("--mouse-x", `${x}px`);
+    card.style.setProperty("--mouse-y", `${y}px`);
+    
+    const width = rect.width;
+    const height = rect.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    const maxTilt = 8; // Max tilt angle
+    const rotateY = ((x - centerX) / centerX) * maxTilt;
+    const rotateX = -((y - centerY) / centerY) * maxTilt;
+    
+    card.style.setProperty("--rotate-x", `${rotateX}deg`);
+    card.style.setProperty("--rotate-y", `${rotateY}deg`);
+  };
+
+  const handleCardMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    card.style.setProperty("--rotate-x", "0deg");
+    card.style.setProperty("--rotate-y", "0deg");
+  };
 
   const fetchVideoInfo = async () => {
     try {
@@ -120,61 +222,81 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       title: "Project Manager",
       desc: "Track workspace board statuses, technical stacks, priority items, and team deadlines.",
       icon: <FolderGit2 className="h-5 w-5 text-amber-500" />,
-      color: "from-amber-500/10 to-orange-500/10 border-amber-500/20"
+      color: "from-amber-500/10 to-orange-500/10 border-amber-500/20",
+      spotlightBorder: "rgba(245, 158, 11, 0.45)",
+      spotlightBg: "rgba(245, 158, 11, 0.05)"
     },
     {
       title: "Secrets Manager",
       desc: "Lock credentials and passwords with military-grade client-side encryption and IV salts.",
       icon: <KeyRound className="h-5 w-5 text-emerald-500" />,
-      color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20"
+      color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20",
+      spotlightBorder: "rgba(16, 185, 129, 0.45)",
+      spotlightBg: "rgba(16, 185, 129, 0.05)"
     },
     {
       title: "Snippet Manager",
       desc: "Save reusable code templates and standard developer configurations in one card board.",
       icon: <FileCode2 className="h-5 w-5 text-indigo-500" />,
-      color: "from-indigo-500/10 to-blue-500/10 border-indigo-500/20"
+      color: "from-indigo-500/10 to-blue-500/10 border-indigo-500/20",
+      spotlightBorder: "rgba(99, 102, 241, 0.45)",
+      spotlightBg: "rgba(99, 102, 241, 0.05)"
     },
     {
       title: "Markdown Notes",
       desc: "Write project wikis, API guidelines, and documentation in full Markdown slates.",
       icon: <FileText className="h-5 w-5 text-pink-500" />,
-      color: "from-pink-500/10 to-rose-500/10 border-pink-500/20"
+      color: "from-pink-500/10 to-rose-500/10 border-pink-500/20",
+      spotlightBorder: "rgba(236, 72, 153, 0.45)",
+      spotlightBg: "rgba(236, 72, 153, 0.05)"
     },
     {
       title: "Expense Tracker",
       desc: "Monitor deployment infrastructure bills, renewals, and project operational costs.",
       icon: <DollarSign className="h-5 w-5 text-violet-500" />,
-      color: "from-violet-500/10 to-purple-500/10 border-violet-500/20"
+      color: "from-violet-500/10 to-purple-500/10 border-violet-500/20",
+      spotlightBorder: "rgba(139, 92, 246, 0.45)",
+      spotlightBg: "rgba(139, 92, 246, 0.05)"
     },
     {
       title: "GitHub Tracker",
       desc: "Analyze repository commits, star counts, branches, and open pull request metrics.",
-      icon: <Github className="h-5 w-5 text-sky-500 text-slate-700 dark:text-sky-400" />,
-      color: "from-sky-500/10 to-cyan-500/10 border-sky-500/20"
+      icon: <Github className="h-5 w-5 text-sky-500 dark:text-sky-400" />,
+      color: "from-sky-500/10 to-cyan-500/10 border-sky-500/20",
+      spotlightBorder: "rgba(14, 165, 233, 0.45)",
+      spotlightBg: "rgba(14, 165, 233, 0.05)"
     },
     {
       title: "Developer AI Assistant",
       desc: "Ask the integrated Google Gemini model code-related questions and generate boilerplate code.",
       icon: <Bot className="h-5 w-5 text-red-500" />,
-      color: "from-red-500/10 to-orange-500/10 border-red-500/20"
+      color: "from-red-500/10 to-orange-500/10 border-red-500/20",
+      spotlightBorder: "rgba(239, 68, 68, 0.45)",
+      spotlightBg: "rgba(239, 68, 68, 0.05)"
     },
     {
       title: "Bug Tracker",
       desc: "File issue tickets directly on active projects, assign severity, and watch repair statuses.",
       icon: <Bug className="h-5 w-5 text-yellow-500" />,
-      color: "from-yellow-500/10 to-amber-500/10 border-yellow-500/20"
+      color: "from-yellow-500/10 to-amber-500/10 border-yellow-500/20",
+      spotlightBorder: "rgba(234, 179, 8, 0.45)",
+      spotlightBg: "rgba(234, 179, 8, 0.05)"
     },
     {
       title: "Deployment Hub",
       desc: "Store web app staging URLs, backend server domains, platform locations, and notes.",
       icon: <Cpu className="h-5 w-5 text-teal-500" />,
-      color: "from-teal-500/10 to-emerald-500/10 border-teal-500/20"
+      color: "from-teal-500/10 to-emerald-500/10 border-teal-500/20",
+      spotlightBorder: "rgba(20, 184, 166, 0.45)",
+      spotlightBg: "rgba(20, 184, 166, 0.05)"
     },
     {
       title: "AI Documentation Gen",
       desc: "Export README.md, API specs, and change logs automatically using smart AI templates.",
       icon: <BookOpen className="h-5 w-5 text-indigo-400" />,
-      color: "from-indigo-400/10 to-violet-500/10 border-indigo-400/20"
+      color: "from-indigo-400/10 to-violet-500/10 border-indigo-400/20",
+      spotlightBorder: "rgba(129, 140, 248, 0.45)",
+      spotlightBg: "rgba(129, 140, 248, 0.05)"
     }
   ];
 
@@ -224,11 +346,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className={`w-full overflow-y-auto bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-150 font-sans transition-colors duration-300 relative ${isWorkspaceView ? "h-full rounded-2xl border border-zinc-200 dark:border-zinc-800/80 p-4 md:p-6 bg-white dark:bg-zinc-950/40 backdrop-blur-md" : "min-h-screen"}`}>
-      {/* Glow Effects */}
+      {/* Glow & Floating Effects */}
       {!isWorkspaceView && (
         <>
           <div className="absolute top-0 left-1/4 -translate-x-1/2 w-[500px] h-[500px] bg-gradient-to-b from-orange-500/10 via-amber-400/5 to-transparent blur-[160px] rounded-full pointer-events-none z-0 dark:opacity-100 opacity-40" />
           <div className="absolute bottom-1/3 right-1/4 translate-x-1/2 w-[600px] h-[600px] bg-gradient-to-t from-indigo-500/5 via-violet-500/5 to-transparent blur-[180px] rounded-full pointer-events-none z-0 dark:opacity-100 opacity-40" />
+          
+          {/* Floating developer symbols */}
+          {floatingSymbols.map((item, idx) => (
+            <motion.div
+              key={idx}
+              className={`absolute ${item.size} pointer-events-none select-none font-mono text-orange-500/20 dark:text-orange-400/15 z-0`}
+              style={{ top: item.top, left: item.left }}
+              animate={{
+                y: [0, -50, 0],
+                x: [0, 20, 0],
+                rotate: [0, 180, 360],
+                opacity: [0.15, 0.45, 0.15],
+              }}
+              transition={{
+                duration: item.duration,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: item.delay,
+              }}
+            >
+              {item.char}
+            </motion.div>
+          ))}
         </>
       )}
 
@@ -362,30 +507,151 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Services provided */}
         <section id="services" className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
           <div className="text-center max-w-xl mx-auto mb-10 md:mb-12">
-            <h2 className="text-xl md:text-3xl font-bold text-zinc-900 dark:text-white">Services We Provide</h2>
+            <div 
+              className="relative inline-block cursor-default group"
+              onMouseEnter={() => setHeaderHovered(true)}
+              onMouseLeave={() => setHeaderHovered(false)}
+            >
+              <h2 className="text-xl md:text-3xl font-bold text-zinc-900 dark:text-white transition-all duration-500 group-hover:scale-105 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-orange-500 group-hover:to-amber-500 group-hover:drop-shadow-[0_0_15px_rgba(255,98,0,0.25)]">
+                Services We Provide
+              </h2>
+              {/* Animated underline */}
+              <div className="h-[2px] w-0 group-hover:w-1/2 bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 mx-auto mt-2 rounded-full" />
+              
+              {/* Floating Sparkles when hovered */}
+              <AnimatePresence>
+                {headerHovered && (
+                  <>
+                    {/* Sparkle 1 */}
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5], x: -60, y: -40, rotate: 45 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.5, ease: "easeOut", repeat: Infinity }}
+                      className="absolute top-1/4 left-0 text-orange-500 pointer-events-none"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </motion.span>
+                    
+                    {/* Sparkle 2 */}
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5], x: 70, y: -30, rotate: -30 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.8, ease: "easeOut", delay: 0.2, repeat: Infinity }}
+                      className="absolute top-1/4 right-0 text-amber-500 pointer-events-none"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </motion.span>
+
+                    {/* Sparkle 3 */}
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.6, 1.2, 0.6], x: -35, y: 30, rotate: 15 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.3, ease: "easeOut", delay: 0.4, repeat: Infinity }}
+                      className="absolute bottom-1/4 left-4 text-orange-400 pointer-events-none"
+                    >
+                      ✦
+                    </motion.span>
+
+                    {/* Sparkle 4 */}
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.6, 1.2, 0.6], x: 45, y: 25, rotate: 90 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.6, ease: "easeOut", delay: 0.1, repeat: Infinity }}
+                      className="absolute bottom-1/4 right-4 text-amber-400 pointer-events-none"
+                    >
+                      ✦
+                    </motion.span>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-2 leading-relaxed">
               DevVault provides a comprehensive, secure system layout mapping all key developer workspaces into one secure cockpit.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:grid-cols-2 lg:gap-6">
+          <motion.div 
+            variants={cardContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.05 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:grid-cols-2 lg:gap-6 spotlight-card-wrapper"
+          >
             {services.map((srv, idx) => (
-              <div
+              <motion.div
                 key={idx}
-                className="p-5 md:p-6 rounded-xl border border-zinc-250 dark:border-zinc-900 bg-white dark:bg-zinc-900/10 hover:bg-zinc-100/50 dark:hover:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-800 transition-all duration-300 flex flex-col gap-3 group shadow-sm"
+                variants={cardVariants}
+                onMouseMove={handleCardMouseMove}
+                onMouseLeave={handleCardMouseLeave}
+                style={{ 
+                  transformStyle: "preserve-3d",
+                  "--spotlight-border": srv.spotlightBorder,
+                  "--spotlight-bg": srv.spotlightBg
+                } as React.CSSProperties}
+                className="relative p-[1.5px] rounded-2xl overflow-hidden bg-zinc-200/80 dark:bg-zinc-900 group transition-all duration-300 shadow-sm hover:shadow-md spotlight-card"
               >
-                <div className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 w-fit border border-zinc-200 dark:border-zinc-850 group-hover:border-zinc-300 dark:group-hover:border-zinc-700/85 transition-colors">
-                  {srv.icon}
+                {/* Border Glow layer */}
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
+                  style={{ 
+                    background: "radial-gradient(130px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), var(--spotlight-border), transparent)" 
+                  }} 
+                />
+                
+                {/* Inner Card Content */}
+                <div 
+                  style={{ transformStyle: "preserve-3d" }}
+                  className="relative p-5 md:p-6 rounded-[15px] bg-white dark:bg-zinc-950 flex flex-col gap-3 h-full w-full overflow-hidden select-none"
+                >
+                  {/* Card Background Glow */}
+                  <div 
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
+                    style={{ 
+                      background: "radial-gradient(280px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), var(--spotlight-bg), transparent 80%)" 
+                    }} 
+                  />
+
+                  {/* Icon with float depth */}
+                  <div 
+                    style={{ transform: "translateZ(30px)" }}
+                    className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 w-fit border border-zinc-200 dark:border-zinc-850 group-hover:border-zinc-300 dark:group-hover:border-zinc-700/85 transition-all duration-300 ease-out group-hover:scale-110 shadow-sm"
+                  >
+                    {srv.icon}
+                  </div>
+                  
+                  {/* Title with float depth */}
+                  <h3 
+                    style={{ transform: "translateZ(20px)" }}
+                    className="font-bold text-zinc-900 dark:text-white text-sm transition-transform duration-300"
+                  >
+                    {srv.title}
+                  </h3>
+                  
+                  {/* Description with float depth */}
+                  <p 
+                    style={{ transform: "translateZ(10px)" }}
+                    className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed transition-transform duration-300"
+                  >
+                    {srv.desc}
+                  </p>
                 </div>
-                <h3 className="font-bold text-zinc-900 dark:text-white text-sm">{srv.title}</h3>
-                <p className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed">{srv.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </section>
 
         {/* Shareable Details */}
-        <section className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
+        <motion.section 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.15 }}
+          variants={sectionRevealVariants}
+          className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div>
               <h2 className="text-xl md:text-3xl font-bold text-zinc-900 dark:text-white mb-3">What Details Can You Share?</h2>
@@ -393,9 +659,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Collaboration is at the heart of DevVault. While private vaults remain protected, you can establish project team scopes and securely distribute key structural records.
               </p>
               
-              <div className="flex flex-col gap-4">
+              <motion.div 
+                variants={listContainerVariants}
+                className="flex flex-col gap-4"
+              >
                 {shareableDetails.map((detail, idx) => (
-                  <div key={idx} className="flex gap-3">
+                  <motion.div 
+                    variants={listItemVariants}
+                    key={idx} 
+                    className="flex gap-3"
+                  >
                     <div className="h-5 w-5 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-650 dark:text-orange-400 text-[10px] font-mono shrink-0 mt-0.5 font-bold">
                       {idx + 1}
                     </div>
@@ -403,12 +676,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <h4 className="font-bold text-sm text-zinc-900 dark:text-white">{detail.title}</h4>
                       <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1 leading-relaxed">{detail.desc}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
 
-            <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-850 p-5 md:p-6 rounded-2xl relative overflow-hidden backdrop-blur-md shadow-sm">
+            <motion.div 
+              initial={{ opacity: 0, x: 40, rotateY: -10 }}
+              whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.2 }}
+              style={{ transformStyle: "preserve-3d", perspective: 1000 }}
+              className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-850 p-5 md:p-6 rounded-2xl relative overflow-hidden backdrop-blur-md shadow-sm"
+            >
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-500/10 blur-[50px] rounded-full pointer-events-none" />
               
               <div className="flex items-center gap-2 mb-6">
@@ -443,12 +723,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-zinc-500 font-mono">No Encryption</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
 
         {/* Security Footprint */}
-        <section id="security" className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
+        <motion.section 
+          id="security" 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.15 }}
+          variants={sectionRevealVariants}
+          className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900"
+        >
           <div className="text-center max-w-xl mx-auto mb-10 md:mb-12">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/5 text-emerald-650 dark:text-emerald-400 text-xs font-mono mb-3">
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -460,9 +747,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <motion.div 
+            variants={cardContainerVariants}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8"
+          >
             {securityFootprint.map((sec, idx) => (
-              <div key={idx} className="flex gap-4 p-5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950/20 hover:border-zinc-300 dark:hover:border-zinc-800 transition-all duration-300 shadow-sm">
+              <motion.div 
+                key={idx} 
+                variants={cardVariants}
+                whileHover={{ y: -4, scale: 1.01, transition: { duration: 0.2 } }}
+                className="flex gap-4 p-5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950/20 hover:border-zinc-300 dark:hover:border-zinc-800 transition-all duration-300 shadow-sm"
+              >
                 <div className="p-3 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white w-fit h-fit shrink-0">
                   {sec.icon}
                 </div>
@@ -470,10 +765,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <h3 className="font-bold text-sm text-zinc-900 dark:text-white">{sec.title}</h3>
                   <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1.5 leading-relaxed">{sec.desc}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
         {/* Footer */}
         {!isWorkspaceView && (

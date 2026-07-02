@@ -148,3 +148,25 @@ body {
   border-color: rgba(255, 98, 0, 0.5);
   box-shadow: 0 0 0 2px rgba(255, 98, 0, 0.2);
 }
+
+/* Unique Interactive Service Cards with 3D Tilt */
+.spotlight-card-wrapper {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.spotlight-card {
+  transform: perspective(1000px) rotateX(var(--rotate-x, 0deg)) rotateY(var(--rotate-y, 0deg)) translateZ(0);
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s ease, background-color 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.spotlight-card:hover {
+  /* Fast follow when active */
+  transition: transform 0.08s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.spotlight-card-inner {
+  transform-style: preserve-3d;
+}
+

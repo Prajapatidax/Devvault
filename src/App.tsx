@@ -78,30 +78,21 @@ type ActiveTab =
 
 export function ArtificialLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      {/* Central circle */}
-      <circle cx="50" cy="30" r="8" fill="url(#brandGradient)" />
-      
-      {/* Left connector */}
-      <path d="M50 30 C40 30 35 15 25 15 C15 15 15 30 25 30 C35 30 40 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
-      <path d="M50 30 C40 30 35 45 25 45 C15 45 15 30 25 30 C35 30 40 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
-      
-      {/* Right connector */}
-      <path d="M50 30 C60 30 65 15 75 15 C85 15 85 30 75 30 C65 30 60 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
-      <path d="M50 30 C60 30 65 45 75 45 C85 45 85 30 75 30 C65 30 60 30 50 30 Z" fill="url(#brandGradient)" opacity="0.85" />
-
-      {/* Nodes */}
-      <circle cx="25" cy="15" r="9" fill="url(#brandGradient)" />
-      <circle cx="25" cy="45" r="9" fill="url(#brandGradient)" />
-      <circle cx="75" cy="15" r="9" fill="url(#brandGradient)" />
-      <circle cx="75" cy="45" r="9" fill="url(#brandGradient)" />
-      <circle cx="50" cy="30" r="9" fill="url(#brandGradient)" />
-      
+    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M35 32 C45 42 55 42 65 32 C52 45 52 55 65 68 C55 58 45 58 35 68 C48 55 48 45 35 32 Z"
+        fill="url(#brandGradient)"
+      />
+      <circle cx="35" cy="32" r="10" fill="url(#brandGradient)" />
+      <circle cx="65" cy="32" r="10" fill="url(#brandGradient)" />
+      <circle cx="35" cy="68" r="10" fill="url(#brandGradient)" />
+      <circle cx="65" cy="68" r="10" fill="url(#brandGradient)" />
+      <circle cx="50" cy="50" r="12" fill="url(#brandGradient)" />
       <defs>
-        <linearGradient id="brandGradient" x1="15" y1="15" x2="85" y2="45" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ff7b00" />
-          <stop offset="50%" stopColor="#ff5c00" />
-          <stop offset="100%" stopColor="#f59e0b" />
+        <linearGradient id="brandGradient" x1="30" y1="30" x2="70" y2="70" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ff4500" />
+          <stop offset="60%" stopColor="#ff7b00" />
+          <stop offset="100%" stopColor="#ffaa00" />
         </linearGradient>
       </defs>
     </svg>
