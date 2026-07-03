@@ -882,45 +882,31 @@ apiRouter.post("/repositories", requireAuth, async (req: AuthenticatedRequest, r
       return res.status(400).json({ error: "Repository name and URL are required" });
     }
 
-    let stars = 0;
-    let issues = 0;
-    let commits = 0;
-    let openPr = 0;
-    let latestRelease = "v1.0.0";
+    try {
+      // Fetch real stats from GitHub API
+      const liveStats = await fetchGithubStats(url, branch || "main");
 
-    // Try to fetch real stats from GitHub API
-    const liveStats = await fetchGithubStats(url, branch || "main");
-    if (liveStats) {
-      stars = liveStats.stars;
-      issues = liveStats.issues;
-      commits = liveStats.commits;
-      openPr = liveStats.openPr;
-      latestRelease = liveStats.latestRelease;
-    } else {
-      // Fallback to initial mock stats if GitHub API fails or is rate-limited
-      stars = Math.floor(Math.random() * 250) + 12;
-      issues = Math.floor(Math.random() * 20) + 2;
-      commits = Math.floor(Math.random() * 500) + 50;
-      openPr = Math.floor(Math.random() * 5);
+      const newRepo: RepositoryTracker = {
+        id: crypto.randomUUID(),
+        userId: req.user!.id,
+        name: name.trim(),
+        url: url.trim(),
+        branch: branch || "main",
+        stars: liveStats.stars,
+        issues: liveStats.issues,
+        commits: liveStats.commits,
+        openPr: liveStats.openPr,
+        latestRelease: liveStats.latestRelease,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await dbManager.createRepository(newRepo);
+      res.status(201).json(newRepo);
+    } catch (apiError: any) {
+      console.warn("GitHub API error during repository enrollment:", apiError);
+      return res.status(400).json({ error: apiError.message || "Failed to fetch repository from GitHub." });
     }
-
-    const newRepo: RepositoryTracker = {
-      id: crypto.randomUUID(),
-      userId: req.user!.id,
-      name: name.trim(),
-      url: url.trim(),
-      branch: branch || "main",
-      stars,
-      issues,
-      commits,
-      openPr,
-      latestRelease,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    await dbManager.createRepository(newRepo);
-    res.status(201).json(newRepo);
   } catch (error) {
     next(error);
   }
@@ -937,20 +923,21 @@ apiRouter.post("/repositories/:id/sync", requireAuth, async (req: AuthenticatedR
       return res.status(404).json({ error: "Repository not found or access denied" });
     }
 
-    const liveStats = await fetchGithubStats(repo.url, repo.branch);
-    if (!liveStats) {
-      return res.status(400).json({ error: "Failed to fetch live stats from GitHub. Rate limit exceeded or invalid repository URL." });
+    try {
+      const liveStats = await fetchGithubStats(repo.url, repo.branch);
+      const updated = await dbManager.updateRepository(id, userId, {
+        stars: liveStats.stars,
+        issues: liveStats.issues,
+        commits: liveStats.commits,
+        openPr: liveStats.openPr,
+        latestRelease: liveStats.latestRelease
+      });
+
+      res.json(updated);
+    } catch (apiError: any) {
+      console.warn("GitHub API error during repository sync:", apiError);
+      return res.status(400).json({ error: apiError.message || "Failed to sync repository stats." });
     }
-
-    const updated = await dbManager.updateRepository(id, userId, {
-      stars: liveStats.stars,
-      issues: liveStats.issues,
-      commits: liveStats.commits,
-      openPr: liveStats.openPr,
-      latestRelease: liveStats.latestRelease
-    });
-
-    res.json(updated);
   } catch (error) {
     next(error);
   }

@@ -52,11 +52,10 @@ export function parseGithubUrl(urlStr: string): { owner: string; repo: string } 
  * Fetches real metrics for a given repository URL and branch from GitHub's REST API.
  * Uses GITHUB_TOKEN environment variable for authenticated requests if available.
  */
-export async function fetchGithubStats(repoUrl: string, branchName: string): Promise<GitHubStats | null> {
+export async function fetchGithubStats(repoUrl: string, branchName: string): Promise<GitHubStats> {
   const parsed = parseGithubUrl(repoUrl);
   if (!parsed) {
-    console.warn("Invalid GitHub URL:", repoUrl);
-    return null;
+    throw new Error("Invalid GitHub URL format. Please enter a valid repository URL (e.g. https://github.com/owner/repo).");
   }
 
   const { owner, repo } = parsed;
@@ -73,8 +72,13 @@ export async function fetchGithubStats(repoUrl: string, branchName: string): Pro
     // 1. Fetch Repository Info (stars, open issues count)
     const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
     if (!repoRes.ok) {
-      console.warn(`GitHub Repo API returned status ${repoRes.status} for ${owner}/${repo}`);
-      return null;
+      if (repoRes.status === 404) {
+        throw new Error(`Repository "${owner}/${repo}" not found or is private.`);
+      } else if (repoRes.status === 403 || repoRes.status === 429) {
+        throw new Error("GitHub API rate limit exceeded. Please try again later or configure a GITHUB_TOKEN.");
+      } else {
+        throw new Error(`GitHub API returned status ${repoRes.status}.`);
+      }
     }
     const repoData = await repoRes.json();
 
@@ -160,6 +164,6 @@ export async function fetchGithubStats(repoUrl: string, branchName: string): Pro
     };
   } catch (error) {
     console.error(`Error fetching GitHub data for ${owner}/${repo}:`, error);
-    return null;
+    throw error;
   }
 }
