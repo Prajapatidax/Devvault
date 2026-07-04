@@ -169,7 +169,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-amber-500/10 to-orange-500/10 border-amber-500/20",
       spotlightBorder: "rgba(245, 158, 11, 0.45)",
       spotlightBg: "rgba(245, 158, 11, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783185488/project-manage_qai99b.mp4"
     },
     {
       title: "Secrets Manager",
@@ -178,7 +178,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20",
       spotlightBorder: "rgba(16, 185, 129, 0.45)",
       spotlightBg: "rgba(16, 185, 129, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783185867/api-manager_ynwkte.mp4"
     },
     {
       title: "Snippet Manager",
@@ -187,7 +187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-indigo-500/10 to-blue-500/10 border-indigo-500/20",
       spotlightBorder: "rgba(99, 102, 241, 0.45)",
       spotlightBg: "rgba(99, 102, 241, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783186218/Snippet-manager_rphhwr.mp4"
     },
     {
       title: "Markdown Notes",
