@@ -22,7 +22,8 @@ import {
   Activity, 
   Clock, 
   Lock,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from "lucide-react";
 import { Button } from "./UI";
 import { motion } from "motion/react";
@@ -46,6 +47,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
       num: 1,
       name: "Core Features",
       status: "In Development",
+      date: "26 July 2026",
       statusColor: "bg-orange-500/10 text-orange-650 dark:text-orange-400 border-orange-500/20",
       description: "Optimizing the bedrock security structures and usability of the DevVault workstation.",
       features: [
@@ -75,6 +77,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
       num: 2,
       name: "AI Revolution",
       status: "Planned",
+      date: "20 September 2026",
       statusColor: "bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 border-indigo-500/20",
       description: "Infusing the secure cockpit with semantic understanding and offline generative helpers.",
       features: [
@@ -114,6 +117,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
       num: 3,
       name: "Productivity Layer",
       status: "Concept",
+      date: "11 October 2026",
       statusColor: "bg-emerald-500/10 text-emerald-650 dark:text-emerald-400 border-emerald-500/20",
       description: "Maximizing focus and eliminating workspace friction with smart developer utilities.",
       features: [
@@ -247,7 +251,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
               <div className="flex-1 flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-900 pb-3">
                   <div>
-                    <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 dark:text-white flex flex-wrap items-center gap-2">
                       {phase.name}
                       <span className={`px-2 py-0.5 rounded border text-[9px] font-mono tracking-wider uppercase font-bold ${phase.statusColor}`}>
                         {phase.status}
@@ -256,6 +260,10 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
                     <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1 max-w-xl">
                       {phase.description}
                     </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 text-zinc-500 font-mono text-[10px] md:text-xs">
+                    <Calendar className="h-3.5 w-3.5 text-orange-500" />
+                    <span>Target: {phase.date}</span>
                   </div>
                 </div>
 
@@ -288,6 +296,41 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
               </div>
             </motion.div>
           ))}
+
+          {/* Phase 4 & 5 Teaser Timeline Marker */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ delay: 0.4, type: "spring", stiffness: 90 }}
+            className="flex gap-5 md:gap-10 relative z-10"
+          >
+            {/* Timeline Marker */}
+            <div className="h-9 w-9 md:h-[70px] md:w-[70px] rounded-2xl border shrink-0 flex items-center justify-center font-bold text-sm md:text-xl font-mono shadow-sm bg-zinc-100 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-850 text-zinc-400 dark:text-zinc-650">
+              ++
+            </div>
+
+            {/* Content Box */}
+            <div className="flex-1 flex flex-col gap-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-900 pb-3">
+                <div>
+                  <h2 className="text-lg md:text-xl font-extrabold text-zinc-400 dark:text-zinc-500 flex items-center gap-2">
+                    Phase 4 & 5 Blueprint
+                    <span className="px-2 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-[9px] font-mono tracking-wider uppercase font-bold">
+                      Teaser Coming Soon
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-550 mt-1 max-w-xl">
+                    Our R&D division is preparing detailed specifications for advanced server orchestrations, multi-agent networks, and visual timeline tools.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 text-zinc-500 font-mono text-[10px] md:text-xs">
+                  <Calendar className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Update List: 2 August 2026</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
         {/* Footer info box */}
