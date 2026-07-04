@@ -55,14 +55,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const { user, apiFetch } = useAuth();
   const { toast } = useToast();
 
-  const [videoInfo, setVideoInfo] = useState({ videoId: "SqcY0GlETPk", videoUrl: "" });
-  const [loadingVideo, setLoadingVideo] = useState(true);
-  
-  // Edit Video States
-  const [isEditing, setIsEditing] = useState(false);
-  const [videoInputUrl, setVideoInputUrl] = useState("");
-  const [updating, setUpdating] = useState(false);
   const [headerHovered, setHeaderHovered] = useState(false);
+  const [activeServiceIdx, setActiveServiceIdx] = useState(0);
 
   // Floating decorative code/cryptographic elements for the background
   const floatingSymbols = [
@@ -165,58 +159,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     card.style.setProperty("--rotate-y", "0deg");
   };
 
-  const fetchVideoInfo = async () => {
-    try {
-      const res = await fetch("/api/landing-video");
-      if (res.ok) {
-        const data = await res.json();
-        setVideoInfo(data);
-        setVideoInputUrl(data.videoUrl);
-      }
-    } catch (err) {
-      console.error("Failed to load landing video info:", err);
-    } finally {
-      setLoadingVideo(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchVideoInfo();
-  }, []);
-
-  const handleUpdateVideo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!videoInputUrl.trim()) {
-      toast("Please enter a valid YouTube URL", "error");
-      return;
-    }
-
-    setUpdating(true);
-    try {
-      const res = await apiFetch("/api/landing-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ videoUrl: videoInputUrl }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setVideoInfo({ videoId: data.videoId, videoUrl: data.videoUrl });
-        toast("Tutorial video updated successfully!", "success");
-        setIsEditing(false);
-      } else {
-        const errData = await res.json();
-        toast(errData.error || "Failed to update video", "error");
-      }
-    } catch (err) {
-      console.error(err);
-      toast("An error occurred while updating the video", "error");
-    } finally {
-      setUpdating(false);
-    }
-  };
 
   // Modern grid services list
   const services = [
@@ -226,7 +169,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <FolderGit2 className="h-5 w-5 text-amber-500" />,
       color: "from-amber-500/10 to-orange-500/10 border-amber-500/20",
       spotlightBorder: "rgba(245, 158, 11, 0.45)",
-      spotlightBg: "rgba(245, 158, 11, 0.05)"
+      spotlightBg: "rgba(245, 158, 11, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
     },
     {
       title: "Secrets Manager",
@@ -234,7 +178,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <KeyRound className="h-5 w-5 text-emerald-500" />,
       color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20",
       spotlightBorder: "rgba(16, 185, 129, 0.45)",
-      spotlightBg: "rgba(16, 185, 129, 0.05)"
+      spotlightBg: "rgba(16, 185, 129, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
     },
     {
       title: "Snippet Manager",
@@ -242,7 +187,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <FileCode2 className="h-5 w-5 text-indigo-500" />,
       color: "from-indigo-500/10 to-blue-500/10 border-indigo-500/20",
       spotlightBorder: "rgba(99, 102, 241, 0.45)",
-      spotlightBg: "rgba(99, 102, 241, 0.05)"
+      spotlightBg: "rgba(99, 102, 241, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
     },
     {
       title: "Markdown Notes",
@@ -250,7 +196,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <FileText className="h-5 w-5 text-pink-500" />,
       color: "from-pink-500/10 to-rose-500/10 border-pink-500/20",
       spotlightBorder: "rgba(236, 72, 153, 0.45)",
-      spotlightBg: "rgba(236, 72, 153, 0.05)"
+      spotlightBg: "rgba(236, 72, 153, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
     },
     {
       title: "Expense Tracker",
@@ -258,7 +205,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <DollarSign className="h-5 w-5 text-violet-500" />,
       color: "from-violet-500/10 to-purple-500/10 border-violet-500/20",
       spotlightBorder: "rgba(139, 92, 246, 0.45)",
-      spotlightBg: "rgba(139, 92, 246, 0.05)"
+      spotlightBg: "rgba(139, 92, 246, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
     },
     {
       title: "GitHub Tracker",
@@ -266,7 +214,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <Github className="h-5 w-5 text-sky-500 dark:text-sky-400" />,
       color: "from-sky-500/10 to-cyan-500/10 border-sky-500/20",
       spotlightBorder: "rgba(14, 165, 233, 0.45)",
-      spotlightBg: "rgba(14, 165, 233, 0.05)"
+      spotlightBg: "rgba(14, 165, 233, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
     },
     {
       title: "Developer AI Assistant",
@@ -274,7 +223,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <Bot className="h-5 w-5 text-red-500" />,
       color: "from-red-500/10 to-orange-500/10 border-red-500/20",
       spotlightBorder: "rgba(239, 68, 68, 0.45)",
-      spotlightBg: "rgba(239, 68, 68, 0.05)"
+      spotlightBg: "rgba(239, 68, 68, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
     },
     {
       title: "Bug Tracker",
@@ -282,7 +232,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <Bug className="h-5 w-5 text-yellow-500" />,
       color: "from-yellow-500/10 to-amber-500/10 border-yellow-500/20",
       spotlightBorder: "rgba(234, 179, 8, 0.45)",
-      spotlightBg: "rgba(234, 179, 8, 0.05)"
+      spotlightBg: "rgba(234, 179, 8, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
     },
     {
       title: "Deployment Hub",
@@ -290,7 +241,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <Cpu className="h-5 w-5 text-teal-500" />,
       color: "from-teal-500/10 to-emerald-500/10 border-teal-500/20",
       spotlightBorder: "rgba(20, 184, 166, 0.45)",
-      spotlightBg: "rgba(20, 184, 166, 0.05)"
+      spotlightBg: "rgba(20, 184, 166, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
     },
     {
       title: "AI Documentation Gen",
@@ -298,7 +250,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: <BookOpen className="h-5 w-5 text-indigo-400" />,
       color: "from-indigo-400/10 to-violet-500/10 border-indigo-400/20",
       spotlightBorder: "rgba(129, 140, 248, 0.45)",
-      spotlightBg: "rgba(129, 140, 248, 0.05)"
+      spotlightBg: "rgba(129, 140, 248, 0.05)",
+      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
     }
   ];
 
@@ -393,7 +346,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="flex items-center gap-2.5 md:gap-4">
               <a href="#services" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Services</a>
               <a href="#security" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Security</a>
-              <a href="#tutorial" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Tutorial</a>
               {onNavigateToRoadmap && (
                 <button 
                   onClick={onNavigateToRoadmap}
@@ -465,55 +417,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Get Started
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <a href="#tutorial" className="w-full sm:w-auto">
-                <Button variant="secondary" size="lg" className="w-full sm:w-auto justify-center">
-                  <Play className="h-4 w-4 fill-current text-orange-500" />
-                  Watch Video Tutorial
-                </Button>
-              </a>
             </motion.div>
           </section>
         )}
-
-        {/* Video instruction bar */}
-        <section id="tutorial" className="py-8 md:py-12 border-t border-zinc-200 dark:border-zinc-900">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
-            <div>
-              <h2 className="text-lg md:text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Play className="h-5 w-5 text-orange-500" />
-                How to Use DevVault
-              </h2>
-              <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-1">Watch this quick walkthrough video to master the vault workspace.</p>
-            </div>
-            
-            {/* Show edit button only when logged in */}
-            {user && (
-              <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)} className="text-xs self-start sm:self-auto">
-                <Edit className="h-3.5 w-3.5" />
-                Update Tutorial Video
-              </Button>
-            )}
-          </div>
-
-          <div className="relative group rounded-xl md:rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 overflow-hidden shadow-xl p-1.5 md:p-4 backdrop-blur-sm">
-            {loadingVideo ? (
-              <div className="aspect-video w-full flex flex-col items-center justify-center text-xs text-zinc-500 gap-2">
-                <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
-                <span>Loading video stream...</span>
-              </div>
-            ) : (
-              <div className="relative aspect-video w-full rounded-lg md:rounded-xl overflow-hidden shadow-inner bg-zinc-950">
-                <iframe
-                  className="absolute inset-0 w-full h-full border-0"
-                  src={`https://www.youtube.com/embed/${videoInfo.videoId}`}
-                  title="YouTube video player"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
-          </div>
-        </section>
 
         {/* Services provided */}
         <section id="services" className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
@@ -581,78 +487,87 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </AnimatePresence>
             </div>
             <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-2 leading-relaxed">
-              DevVault provides a comprehensive, secure system layout mapping all key developer workspaces into one secure cockpit.
+              DevVault provides a comprehensive, secure system layout mapping all key developer workspaces into one secure cockpit. Hover or select to preview each feature.
             </p>
           </div>
 
-          <motion.div 
-            variants={cardContainerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.05 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:grid-cols-2 lg:gap-6 spotlight-card-wrapper"
-          >
-            {services.map((srv, idx) => (
-              <motion.div
-                key={idx}
-                variants={cardVariants}
-                onMouseMove={handleCardMouseMove}
-                onMouseLeave={handleCardMouseLeave}
-                style={{ 
-                  transformStyle: "preserve-3d",
-                  "--spotlight-border": srv.spotlightBorder,
-                  "--spotlight-bg": srv.spotlightBg
-                } as React.CSSProperties}
-                className="relative p-[1.5px] rounded-2xl overflow-hidden bg-zinc-200/80 dark:bg-zinc-900 group transition-all duration-300 shadow-sm hover:shadow-md spotlight-card"
-              >
-                {/* Border Glow layer */}
-                <div 
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
-                  style={{ 
-                    background: "radial-gradient(130px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), var(--spotlight-border), transparent)" 
-                  }} 
-                />
-                
-                {/* Inner Card Content */}
-                <div 
-                  style={{ transformStyle: "preserve-3d" }}
-                  className="relative p-5 md:p-6 rounded-[15px] bg-white dark:bg-zinc-950 flex flex-col gap-3 h-full w-full overflow-hidden select-none"
-                >
-                  {/* Card Background Glow */}
-                  <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
-                    style={{ 
-                      background: "radial-gradient(280px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), var(--spotlight-bg), transparent 80%)" 
-                    }} 
-                  />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Side: Interactive Services List */}
+            <div className="lg:col-span-5 flex flex-col gap-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {services.map((srv, idx) => {
+                const isActive = activeServiceIdx === idx;
+                return (
+                  <motion.div
+                    key={idx}
+                    onClick={() => setActiveServiceIdx(idx)}
+                    onMouseEnter={() => setActiveServiceIdx(idx)}
+                    whileHover={{ x: 4 }}
+                    className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all duration-300 cursor-pointer select-none relative overflow-hidden ${
+                      isActive 
+                        ? "bg-white dark:bg-zinc-900 border-orange-500/30 dark:border-orange-500/20 shadow-md ring-1 ring-orange-500/10" 
+                        : "bg-white/40 dark:bg-zinc-950/10 border-zinc-200 dark:border-zinc-900/60 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    {/* Active highlight glow indicator */}
+                    {isActive && (
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-500 to-amber-500" />
+                    )}
 
-                  {/* Icon with float depth */}
-                  <div 
-                    style={{ transform: "translateZ(30px)" }}
-                    className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 w-fit border border-zinc-200 dark:border-zinc-850 group-hover:border-zinc-300 dark:group-hover:border-zinc-700/85 transition-all duration-300 ease-out group-hover:scale-110 shadow-sm"
-                  >
-                    {srv.icon}
-                  </div>
-                  
-                  {/* Title with float depth */}
-                  <h3 
-                    style={{ transform: "translateZ(20px)" }}
-                    className="font-bold text-zinc-900 dark:text-white text-sm transition-transform duration-300"
-                  >
-                    {srv.title}
+                    <div className={`p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 shrink-0 ${isActive ? "text-orange-500" : ""}`}>
+                      {srv.icon}
+                    </div>
+
+                    <div className="flex-1">
+                      <h4 className={`font-bold text-xs md:text-sm transition-colors ${isActive ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-400"}`}>
+                        {srv.title}
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal">
+                        {srv.desc}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Right Side: Sticky Video Feature Showcase */}
+            <div className="lg:col-span-7 lg:sticky lg:top-6 flex flex-col gap-4">
+              <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-3 shadow-xl backdrop-blur-md overflow-hidden aspect-video flex items-center justify-center">
+                {/* Visual back glow corresponding to service color */}
+                <div 
+                  className="absolute inset-0 opacity-10 blur-[100px] pointer-events-none transition-all duration-700" 
+                  style={{
+                    background: `radial-gradient(circle, ${services[activeServiceIdx].spotlightBorder} 0%, transparent 70%)`
+                  }}
+                />
+
+                <video
+                  key={services[activeServiceIdx].videoUrl}
+                  src={services[activeServiceIdx].videoUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover rounded-xl shadow-inner relative z-10 bg-zinc-950"
+                />
+              </div>
+
+              {/* Showcase Detail Block */}
+              <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/60 dark:bg-zinc-950/20 backdrop-blur-sm shadow-sm flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-mono tracking-wider uppercase font-extrabold text-orange-500 dark:text-orange-400">
+                    Feature Demonstration
+                  </span>
+                  <h3 className="font-extrabold text-base text-zinc-900 dark:text-white mt-1">
+                    {services[activeServiceIdx].title}
                   </h3>
-                  
-                  {/* Description with float depth */}
-                  <p 
-                    style={{ transform: "translateZ(10px)" }}
-                    className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed transition-transform duration-300"
-                  >
-                    {srv.desc}
+                  <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-2 leading-relaxed">
+                    {services[activeServiceIdx].desc} This secure workspace segment is fully integrated client-side, encrypted, and synced across your authenticated session.
                   </p>
                 </div>
-              </motion.div>
-            ))}
-          </motion.div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Shareable Details */}
@@ -805,65 +720,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </footer>
         )}
       </div>
-
-      {/* Edit Video Modal */}
-      <AnimatePresence>
-        {isEditing && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-zinc-950/70 dark:bg-zinc-950/85 backdrop-blur-sm"
-              onClick={() => setIsEditing(false)}
-            />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 relative z-10 shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-zinc-900 dark:text-white text-base">Update Tutorial Video</h3>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="p-1 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-150 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleUpdateVideo} className="flex flex-col gap-4">
-                <Input
-                  label="YOUTUBE VIDEO LINK OR ID"
-                  id="video-url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={videoInputUrl}
-                  onChange={(e) => setVideoInputUrl(e.target.value)}
-                  icon={<Play className="h-4 w-4 text-zinc-400" />}
-                  required
-                />
-                
-                <p className="text-[10px] text-zinc-500 leading-normal">
-                  Supported formats: Standard Watch URL, Shareable Short URL (youtu.be), Embed URL, or the raw 11-character Video ID.
-                </p>
-
-                <div className="flex justify-end gap-3 mt-2">
-                  <Button variant="secondary" type="button" onClick={() => setIsEditing(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="primary" type="submit" isLoading={updating}>
-                    <Save className="h-3.5 w-3.5" />
-                    Save URL
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
