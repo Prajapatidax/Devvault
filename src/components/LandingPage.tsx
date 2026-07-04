@@ -39,6 +39,7 @@ import { ArtificialLogo } from "../App";
 
 interface LandingPageProps {
   onEnterApp: () => void;
+  onNavigateToRoadmap?: () => void;
   isWorkspaceView?: boolean; // If true, rendering inside the authenticated workspace
   theme?: "light" | "dark" | "system";
   setTheme?: (theme: "light" | "dark" | "system") => void;
@@ -46,6 +47,7 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterApp,
+  onNavigateToRoadmap,
   isWorkspaceView = false,
   theme = "dark",
   setTheme
@@ -392,6 +394,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <a href="#services" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Services</a>
               <a href="#security" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Security</a>
               <a href="#tutorial" className="hidden sm:inline-block text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors">Tutorial</a>
+              {onNavigateToRoadmap && (
+                <button 
+                  onClick={onNavigateToRoadmap}
+                  className="text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 bg-orange-500/10 dark:bg-orange-500/5 px-2.5 py-1 rounded-full border border-orange-500/20 text-orange-650 dark:text-orange-400 font-semibold"
+                >
+                  <Sparkles className="h-3 w-3 text-orange-500" />
+                  Roadmap
+                </button>
+              )}
               
               {/* Sun/Moon Toggle */}
               {setTheme && (
@@ -782,6 +793,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Security Audits</span>
               <span>•</span>
               <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">API Agreement</span>
+              {onNavigateToRoadmap && (
+                <>
+                  <span>•</span>
+                  <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer text-orange-650 dark:text-orange-400 font-semibold" onClick={onNavigateToRoadmap}>Upcoming Features</span>
+                </>
+              )}
               <span>•</span>
               <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer" onClick={onEnterApp}>Enter Workspace</span>
             </div>

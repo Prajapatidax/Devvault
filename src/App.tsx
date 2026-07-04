@@ -24,6 +24,7 @@ import { DocumentationGen } from "./components/DocumentationGen";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotificationsPage } from "./components/NotificationsPage";
 import { LandingPage } from "./components/LandingPage";
+import { RoadmapPage } from "./components/RoadmapPage";
 
 import {
   LayoutDashboard,
@@ -516,6 +517,7 @@ function DevVaultWorkspace({
 function MainWorkspace() {
   const { user, loading, verifyingEmail } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
+  const [showRoadmap, setShowRoadmap] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
     return (localStorage.getItem("devvault_theme") as any) || "dark";
   });
@@ -552,10 +554,21 @@ function MainWorkspace() {
     return <DevVaultWorkspace theme={theme} setTheme={setTheme} />;
   }
 
-  return showAuth ? (
-    <AuthPage onBackToLanding={() => setShowAuth(false)} />
-  ) : (
-    <LandingPage onEnterApp={() => setShowAuth(true)} theme={theme} setTheme={setTheme} />
+  if (showAuth) {
+    return <AuthPage onBackToLanding={() => setShowAuth(false)} />;
+  }
+
+  if (showRoadmap) {
+    return <RoadmapPage onBackToLanding={() => setShowRoadmap(false)} theme={theme} setTheme={setTheme} />;
+  }
+
+  return (
+    <LandingPage 
+      onEnterApp={() => setShowAuth(true)} 
+      onNavigateToRoadmap={() => setShowRoadmap(true)} 
+      theme={theme} 
+      setTheme={setTheme} 
+    />
   );
 }
 
