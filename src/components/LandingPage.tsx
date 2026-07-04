@@ -56,7 +56,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const { toast } = useToast();
 
   const [headerHovered, setHeaderHovered] = useState(false);
-  const [activeServiceIdx, setActiveServiceIdx] = useState(0);
 
   // Floating decorative code/cryptographic elements for the background
   const floatingSymbols = [
@@ -423,7 +422,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* Services provided */}
         <section id="services" className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
-          <div className="text-center max-w-xl mx-auto mb-10 md:mb-12">
+          <div className="text-center max-w-xl mx-auto mb-16 md:mb-24">
             <div 
               className="relative inline-block cursor-default group"
               onMouseEnter={() => setHeaderHovered(true)}
@@ -487,86 +486,80 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </AnimatePresence>
             </div>
             <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-2 leading-relaxed">
-              DevVault provides a comprehensive, secure system layout mapping all key developer workspaces into one secure cockpit. Hover or select to preview each feature.
+              DevVault provides a comprehensive, secure system layout mapping all key developer workspaces into alternating showcase modules.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left Side: Interactive Services List */}
-            <div className="lg:col-span-5 flex flex-col gap-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-              {services.map((srv, idx) => {
-                const isActive = activeServiceIdx === idx;
-                return (
-                  <motion.div
-                    key={idx}
-                    onClick={() => setActiveServiceIdx(idx)}
-                    onMouseEnter={() => setActiveServiceIdx(idx)}
-                    whileHover={{ x: 4 }}
-                    className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all duration-300 cursor-pointer select-none relative overflow-hidden ${
-                      isActive 
-                        ? "bg-white dark:bg-zinc-900 border-orange-500/30 dark:border-orange-500/20 shadow-md ring-1 ring-orange-500/10" 
-                        : "bg-white/40 dark:bg-zinc-950/10 border-zinc-200 dark:border-zinc-900/60 opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    {/* Active highlight glow indicator */}
-                    {isActive && (
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-500 to-amber-500" />
-                    )}
-
-                    <div className={`p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 shrink-0 ${isActive ? "text-orange-500" : ""}`}>
+          <div className="flex flex-col gap-24 md:gap-36">
+            {services.map((srv, idx) => {
+              const isEven = idx % 2 === 0;
+              return (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-16 items-center"
+                >
+                  {/* Details Column */}
+                  <div className={`lg:col-span-5 flex flex-col gap-3.5 ${isEven ? "lg:order-1" : "lg:order-2"}`}>
+                    <div 
+                      className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 w-fit border border-zinc-200 dark:border-zinc-850 shadow-sm"
+                    >
                       {srv.icon}
                     </div>
+                    
+                    <h3 className="text-xl md:text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                      {srv.title}
+                    </h3>
+                    
+                    <p className="text-xs md:text-sm text-zinc-550 dark:text-zinc-400 leading-relaxed">
+                      {srv.desc}
+                    </p>
 
-                    <div className="flex-1">
-                      <h4 className={`font-bold text-xs md:text-sm transition-colors ${isActive ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-400"}`}>
-                        {srv.title}
-                      </h4>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal">
-                        {srv.desc}
-                      </p>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex items-center gap-2 text-xs text-zinc-650 dark:text-zinc-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                        <span>Zero-knowledge client-side encryption</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-zinc-650 dark:text-zinc-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                        <span>Synchronized dynamically across authorized collaborators</span>
+                      </div>
                     </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                  </div>
 
-            {/* Right Side: Sticky Video Feature Showcase */}
-            <div className="lg:col-span-7 lg:sticky lg:top-6 flex flex-col gap-4">
-              <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-3 shadow-xl backdrop-blur-md overflow-hidden aspect-video flex items-center justify-center">
-                {/* Visual back glow corresponding to service color */}
-                <div 
-                  className="absolute inset-0 opacity-10 blur-[100px] pointer-events-none transition-all duration-700" 
-                  style={{
-                    background: `radial-gradient(circle, ${services[activeServiceIdx].spotlightBorder} 0%, transparent 70%)`
-                  }}
-                />
+                  {/* Video Column */}
+                  <div className={`lg:col-span-7 ${isEven ? "lg:order-2" : "lg:order-1"}`}>
+                    <div 
+                      style={{
+                        "--spotlight-border": srv.spotlightBorder,
+                        "--spotlight-bg": srv.spotlightBg
+                      } as React.CSSProperties}
+                      className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/30 p-2 md:p-3 shadow-xl backdrop-blur-md overflow-hidden aspect-video flex items-center justify-center group"
+                    >
+                      {/* Ambient spotlight glow layer */}
+                      <div 
+                        className="absolute inset-0 opacity-10 group-hover:opacity-15 blur-[80px] pointer-events-none transition-all duration-700" 
+                        style={{
+                          background: `radial-gradient(circle, ${srv.spotlightBorder} 0%, transparent 70%)`
+                        }}
+                      />
 
-                <video
-                  key={services[activeServiceIdx].videoUrl}
-                  src={services[activeServiceIdx].videoUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover rounded-xl shadow-inner relative z-10 bg-zinc-950"
-                />
-              </div>
-
-              {/* Showcase Detail Block */}
-              <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-white/60 dark:bg-zinc-950/20 backdrop-blur-sm shadow-sm flex items-center justify-between gap-4">
-                <div>
-                  <span className="text-[10px] font-mono tracking-wider uppercase font-extrabold text-orange-500 dark:text-orange-400">
-                    Feature Demonstration
-                  </span>
-                  <h3 className="font-extrabold text-base text-zinc-900 dark:text-white mt-1">
-                    {services[activeServiceIdx].title}
-                  </h3>
-                  <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-2 leading-relaxed">
-                    {services[activeServiceIdx].desc} This secure workspace segment is fully integrated client-side, encrypted, and synced across your authenticated session.
-                  </p>
-                </div>
-              </div>
-            </div>
+                      <video
+                        src={srv.videoUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover rounded-xl shadow-inner relative z-10 bg-zinc-950 border border-zinc-200/50 dark:border-zinc-800/80"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </section>
 
