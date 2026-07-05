@@ -16,6 +16,7 @@ export const GitHubTracker: React.FC = () => {
   const [repos, setRepos] = useState<RepositoryTracker[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tokenConfigured, setTokenConfigured] = useState(true);
 
   // Form Fields
   const [name, setName] = useState("");
@@ -38,8 +39,21 @@ export const GitHubTracker: React.FC = () => {
     }
   };
 
+  const checkTokenStatus = async () => {
+    try {
+      const res = await apiFetch("/api/settings/github-token-status");
+      if (res.ok) {
+        const data = await res.json();
+        setTokenConfigured(data.configured);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchRepos();
+    checkTokenStatus();
   }, []);
 
   const handleOpenModal = () => {
@@ -148,6 +162,19 @@ export const GitHubTracker: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {!tokenConfigured && (
+        <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-850 dark:text-amber-400 text-xs">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold">Anonymous GitHub Requests Mode</span>
+            <p className="text-[11px] text-zinc-550 dark:text-amber-500/80 mt-1 leading-normal">
+              You are making API requests without a GitHub token. GitHub strictly rate-limits anonymous queries.
+              Please configure a <span className="font-bold font-mono">Personal Access Token (PAT)</span> in your <span className="font-bold underline">Settings</span> to bypass this limit.
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading && repos.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-xs text-zinc-500 font-mono gap-2">

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input } from "./UI";
-import { KeyRound, Download, Upload, ShieldCheck, Moon, Sun, Monitor, ShieldAlert } from "lucide-react";
+import { KeyRound, Download, Upload, ShieldCheck, Moon, Sun, Monitor, ShieldAlert, Github } from "lucide-react";
 
 interface SettingsPageProps {
   theme: "light" | "dark" | "system";
@@ -26,6 +26,57 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
   // Import State
   const [importJson, setImportJson] = useState("");
   const [importing, setImporting] = useState(false);
+
+  // GitHub Token State
+  const [githubToken, setGithubToken] = useState("");
+  const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
+
+  const fetchTokenStatus = async () => {
+    try {
+      const res = await apiFetch("/api/settings/github-token-status");
+      if (res.ok) {
+        const data = await res.json();
+        setTokenConfigured(data.configured);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTokenStatus();
+  }, []);
+
+  const handleSaveGithubToken = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!githubToken.trim()) {
+      toast("Please enter a valid GitHub token", "error");
+      return;
+    }
+
+    setSavingToken(true);
+    try {
+      const res = await apiFetch("/api/settings/github-token", {
+        method: "POST",
+        body: JSON.stringify({ token: githubToken.trim() }),
+      });
+
+      if (res.ok) {
+        toast("GitHub Token configured successfully!", "success");
+        setGithubToken("");
+        setTokenConfigured(true);
+      } else {
+        const data = await res.json();
+        toast(data.error || "Failed to save token", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Failed to configure token", "error");
+    } finally {
+      setSavingToken(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,6 +272,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
 
               <Button type="submit" variant="primary" isLoading={updatingPass} className="mt-1 py-2 text-xs">
                 <KeyRound className="h-4 w-4" /> Re-encrypt Credentials
+              </Button>
+            </form>
+          </div>
+
+          {/* GitHub API Token Configuration */}
+          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/20 backdrop-blur-sm shadow-sm flex flex-col gap-4">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase flex items-center gap-1.5">
+                <Github className="h-4 w-4 text-zinc-400" /> GitHub Token Configuration
+              </h3>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Configure your GitHub Personal Access Token to avoid API rate limits.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveGithubToken} className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 p-2 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-850 rounded-lg text-[10px] font-mono">
+                <ShieldCheck className={`h-4.5 w-4.5 shrink-0 ${tokenConfigured ? "text-emerald-500" : "text-amber-500"}`} />
+                <span>
+                  {tokenConfigured 
+                    ? "Status: ACTIVE (Personal Token configured)" 
+                    : "Status: ANONYMOUS (Subject to strict rate limiting)"}
+                </span>
+              </div>
+
+              <Input
+                label="PERSONAL ACCESS TOKEN (PAT)"
+                type="password"
+                placeholder={tokenConfigured ? "••••••••••••••••••••" : "github_pat_..."}
+                value={githubToken}
+                onChange={(e) => setGithubToken(e.target.value)}
+                required
+              />
+
+              <p className="text-[10px] text-zinc-500 leading-normal">
+                Don't have a token? Create one in your GitHub profile under Settings &gt; Developer settings &gt; Personal access tokens.
+              </p>
+
+              <Button type="submit" variant="secondary" isLoading={savingToken} className="mt-1 py-2 text-xs">
+                Save GitHub Token
               </Button>
             </form>
           </div>

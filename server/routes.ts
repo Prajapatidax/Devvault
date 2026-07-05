@@ -1316,6 +1316,54 @@ apiRouter.get("/settings/export", requireAuth, async (req: AuthenticatedRequest,
   }
 });
 
+apiRouter.get("/settings/github-token-status", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const configured = !!process.env.GITHUB_TOKEN;
+    res.json({ configured });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/settings/github-token", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: "Token is required" });
+    }
+
+    // Save token to .env file and process.env
+    const envPath = path.resolve(process.cwd(), ".env");
+    let content = "";
+    try {
+      content = fs.readFileSync(envPath, "utf-8");
+    } catch (err) {
+      // Ignore if .env doesn't exist yet
+    }
+
+    const lines = content.split("\n");
+    let found = false;
+    const newLines = lines.map(line => {
+      if (line.trim().startsWith("GITHUB_TOKEN=")) {
+        found = true;
+        return `GITHUB_TOKEN=${token}`;
+      }
+      return line;
+    });
+
+    if (!found) {
+      newLines.push(`GITHUB_TOKEN=${token}`);
+    }
+
+    fs.writeFileSync(envPath, newLines.join("\n"), "utf-8");
+    process.env.GITHUB_TOKEN = token;
+
+    res.json({ success: true, message: "GitHub Token configured successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 apiRouter.post("/settings/import", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { importedData } = req.body;
