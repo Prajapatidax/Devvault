@@ -196,7 +196,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-pink-500/10 to-rose-500/10 border-pink-500/20",
       spotlightBorder: "rgba(236, 72, 153, 0.45)",
       spotlightBg: "rgba(236, 72, 153, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783233544/markdown_m5tyyk.mp4"
     },
     {
       title: "Expense Tracker",
@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-violet-500/10 to-purple-500/10 border-violet-500/20",
       spotlightBorder: "rgba(139, 92, 246, 0.45)",
       spotlightBg: "rgba(139, 92, 246, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783233938/expense_tracker_viun9w.mp4"
     },
     {
       title: "GitHub Tracker",
@@ -214,7 +214,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-sky-500/10 to-cyan-500/10 border-sky-500/20",
       spotlightBorder: "rgba(14, 165, 233, 0.45)",
       spotlightBg: "rgba(14, 165, 233, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783234904/github_tracker_duzlsj.mp4"
     },
     {
       title: "Developer AI Assistant",
@@ -223,7 +223,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-red-500/10 to-orange-500/10 border-red-500/20",
       spotlightBorder: "rgba(239, 68, 68, 0.45)",
       spotlightBg: "rgba(239, 68, 68, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783235267/ai_assistant_eua2gn.mp4"
     },
     {
       title: "Bug Tracker",
@@ -232,7 +232,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-yellow-500/10 to-amber-500/10 border-yellow-500/20",
       spotlightBorder: "rgba(234, 179, 8, 0.45)",
       spotlightBg: "rgba(234, 179, 8, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/elephants.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783235445/bug_tracker_fd4xip.mp4"
     },
     {
       title: "Deployment Hub",
@@ -241,7 +241,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-teal-500/10 to-emerald-500/10 border-teal-500/20",
       spotlightBorder: "rgba(20, 184, 166, 0.45)",
       spotlightBg: "rgba(20, 184, 166, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/sea.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783235742/development_tracker_ngse2z.mp4"
     },
     {
       title: "AI Documentation Gen",
@@ -250,7 +250,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       color: "from-indigo-400/10 to-violet-500/10 border-indigo-400/20",
       spotlightBorder: "rgba(129, 140, 248, 0.45)",
       spotlightBg: "rgba(129, 140, 248, 0.05)",
-      videoUrl: "https://res.cloudinary.com/demo/video/upload/w_640,h_360,c_fill/dog.mp4"
+      videoUrl: "https://res.cloudinary.com/vsnuikyu/video/upload/v1783235996/AI_Documentation_Generator_len6e3.mp4"
     }
   ];
 
