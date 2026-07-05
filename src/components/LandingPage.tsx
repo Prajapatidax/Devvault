@@ -339,7 +339,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ArtificialLogo className="h-8 w-12 text-brand-500" />
               <div>
                 <span className="font-bold text-base md:text-lg tracking-tight text-zinc-900 dark:text-white">DevVault</span>
-                <span className="hidden xs:block text-[9px] md:text-[10px] text-zinc-500 font-mono">SECURE DEVELOPER WORKSTATION</span>
+                <span className="hidden sm:block text-[9px] md:text-[10px] text-zinc-500 font-mono">SECURE DEVELOPER WORKSTATION</span>
               </div>
             </div>
             <div className="flex items-center gap-2.5 md:gap-4">
@@ -351,7 +351,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="text-xs text-zinc-650 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 bg-orange-500/10 dark:bg-orange-500/5 px-2.5 py-1 rounded-full border border-orange-500/20 text-orange-650 dark:text-orange-400 font-semibold"
                 >
                   <Sparkles className="h-3 w-3 text-orange-500" />
-                  <span className="hidden xs:inline">Roadmap</span>
+                  <span className="hidden sm:inline">Roadmap</span>
                 </button>
               )}
               
@@ -368,8 +368,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               <Button variant="primary" size="sm" onClick={onEnterApp} className="text-xs">
                 <LogIn className="h-3.5 w-3.5" />
-                <span className="hidden xs:inline">Enter Workspace</span>
-                <span className="xs:hidden">Enter</span>
+                <span className="hidden sm:inline">Enter Workspace</span>
+                <span className="sm:hidden">Enter</span>
               </Button>
             </div>
           </header>
