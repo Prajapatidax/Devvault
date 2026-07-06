@@ -345,6 +345,52 @@ class EmailService {
       console.error(`[Email] Acceptance Email Failed to ${toEmail}:`, error);
     }
   }
+
+  /**
+   * Sends a thank-you email when a user submits feedback
+   */
+  async sendFeedbackReceivedEmail(
+    toEmail: string, 
+    userName: string
+  ): Promise<void> {
+    const title = "We've Received Your Feedback";
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Feedback Received</h2>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Hello ${userName},</p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        Your feedback has been received! We definitely work on this. Thanks for your feedback and time.
+      </p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">
+        We appreciate you taking the time to share your thoughts and help us improve the DevVault workstation.
+      </p>
+      
+      <div style="text-align: center; margin-bottom: 28px; margin-top: 10px;">
+        <a href="${APP_URL}" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Return to DevVault</a>
+      </div>
+      
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
+    `;
+
+    const html = getEmailWrapper(title, contentHtml);
+
+    try {
+      console.log(`[Email] Sending feedback thank you email to ${toEmail}`);
+      const response = await resend.emails.send({
+        from: MAIL_FROM,
+        to: toEmail,
+        subject: "Thanks for your feedback! - DevVault",
+        html
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Unknown Resend error");
+      }
+
+      console.log(`[Email] Feedback Email Sent to ${toEmail}. ID: ${response.data?.id}`);
+    } catch (error) {
+      console.error(`[Email] Feedback Email Failed to ${toEmail}:`, error);
+    }
+  }
 }
 
 export const emailService = new EmailService();

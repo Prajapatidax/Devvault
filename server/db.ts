@@ -23,7 +23,8 @@ import {
   Invitation,
   Notification,
   ActivityLog,
-  EmailVerification
+  EmailVerification,
+  Feedback
 } from "./types";
 
 const DB_FILE = path.join(process.cwd(), "server", "db.json");
@@ -49,6 +50,7 @@ interface DatabaseSchema {
   notifications: Notification[];
   activityLogs: ActivityLog[];
   emailVerifications: EmailVerification[];
+  feedbacks: Feedback[];
 }
 
 const initialDb: DatabaseSchema = {
@@ -65,7 +67,8 @@ const initialDb: DatabaseSchema = {
   invitations: [],
   notifications: [],
   activityLogs: [],
-  emailVerifications: []
+  emailVerifications: [],
+  feedbacks: []
 };
 
 // Encryption secret - derived from env or static fallback for development
@@ -373,6 +376,17 @@ class DatabaseManager {
         otp_hash TEXT NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
         attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      // 15. Feedbacks
+      `CREATE TABLE IF NOT EXISTS feedbacks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        message TEXT NOT NULL,
+        rating INTEGER,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`
     ];
@@ -1250,6 +1264,7 @@ class DatabaseManager {
       const notifications = await this.pool!.query("SELECT * FROM notifications");
       const activityLogs = await this.pool!.query("SELECT * FROM activity_logs");
       const emailVerifications = await this.pool!.query("SELECT * FROM email_verification");
+      const feedbacks = await this.pool!.query("SELECT * FROM feedbacks");
 
       return {
         users: users.rows.map(toCamel),
@@ -1265,7 +1280,8 @@ class DatabaseManager {
         invitations: invitations.rows.map(toCamel),
         notifications: notifications.rows.map(toCamel),
         activityLogs: activityLogs.rows.map(toCamel),
-        emailVerifications: emailVerifications.rows.map(toCamel)
+        emailVerifications: emailVerifications.rows.map(toCamel),
+        feedbacks: feedbacks.rows.map(toCamel)
       };
     }
     const raw = this.readJson();
@@ -1292,6 +1308,7 @@ class DatabaseManager {
       if (newData.notifications) db.notifications = newData.notifications;
       if (newData.activityLogs) db.activityLogs = newData.activityLogs;
       if (newData.emailVerifications) db.emailVerifications = newData.emailVerifications;
+      if (newData.feedbacks) db.feedbacks = newData.feedbacks;
       this.writeJson();
       return;
     }
@@ -1302,6 +1319,7 @@ class DatabaseManager {
 
       // Delete references first, then parent tables
       await client.query("DELETE FROM email_verification");
+      await client.query("DELETE FROM feedbacks");
       await client.query("DELETE FROM notifications");
       await client.query("DELETE FROM activity_logs");
       await client.query("DELETE FROM invitations");
@@ -1542,6 +1560,16 @@ class DatabaseManager {
           await client.query(
             "INSERT INTO email_verification (id, user_id, otp_hash, expires_at, attempts, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
             [ev.id, ev.userId, ev.otpHash, ev.expiresAt, ev.attempts || 0, ev.createdAt]
+          );
+        }
+      }
+
+      // Insert Feedbacks
+      if (Array.isArray(newData.feedbacks)) {
+        for (const f of newData.feedbacks) {
+          await client.query(
+            "INSERT INTO feedbacks (id, user_id, email, name, message, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [f.id, f.userId || null, f.email, f.name, f.message, f.rating || null, f.createdAt]
           );
         }
       }
@@ -2006,6 +2034,31 @@ class DatabaseManager {
     db.emailVerifications = db.emailVerifications.filter((ev) => ev.expiresAt > nowStr);
     if (db.emailVerifications.length < len) {
       this.writeJson();
+    }
+  }
+
+  async createFeedback(feedback: Feedback): Promise<Feedback> {
+    if (this.usePostgres && this.pool) {
+      await this.pool.query(
+        `INSERT INTO feedbacks (id, user_id, email, name, message, rating, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          feedback.id,
+          feedback.userId || null,
+          feedback.email,
+          feedback.name,
+          feedback.message,
+          feedback.rating || null,
+          feedback.createdAt
+        ]
+      );
+      return feedback;
+    } else {
+      const db = this.readJson();
+      if (!db.feedbacks) db.feedbacks = [];
+      db.feedbacks.push(feedback);
+      this.writeJson();
+      return feedback;
     }
   }
 }

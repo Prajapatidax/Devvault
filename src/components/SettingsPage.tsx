@@ -14,7 +14,7 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) => {
-  const { apiFetch, logout } = useAuth();
+  const { apiFetch, logout, user } = useAuth();
   const { toast } = useToast();
 
   // Change Password State
@@ -364,8 +364,116 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
               </form>
             </div>
           </div>
+
+          {/* Feedback Form Card */}
+          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/20 backdrop-blur-sm shadow-sm flex flex-col gap-4">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-zinc-450" /> Send Feedback
+              </h3>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Share your ideas, suggestions, or report any issues with us.
+              </p>
+            </div>
+
+            <SettingsFeedbackForm user={user} apiFetch={apiFetch} toast={toast} />
+          </div>
         </div>
       </div>
     </div>
+  );
+};
+
+interface SettingsFeedbackFormProps {
+  user: any;
+  apiFetch: any;
+  toast: any;
+}
+
+const SettingsFeedbackForm: React.FC<SettingsFeedbackFormProps> = ({ user, apiFetch, toast }) => {
+  const [message, setMessage] = useState("");
+  const [rating, setRating] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) {
+      toast("Please enter your message", "error");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await apiFetch("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          name: user?.name || "Workspace User",
+          email: user?.email || "",
+          message: message.trim(),
+          rating
+        }),
+      });
+
+      if (res.ok) {
+        toast("Feedback submitted successfully! We definitely work on this.", "success");
+        setMessage("");
+        setRating(null);
+      } else {
+        const data = await res.json();
+        toast(data.error || "Failed to submit feedback", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Failed to submit feedback", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold text-zinc-405 dark:text-zinc-500 font-mono tracking-wider uppercase">SATISFACTION RATING</label>
+        <div className="flex items-center gap-1.5">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              onClick={() => setRating(star)}
+              className={`p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center h-8 w-8 ${
+                rating === star
+                  ? "bg-indigo-500/10 border-indigo-500 text-indigo-650 dark:text-indigo-400 font-bold shadow-sm"
+                  : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-955/40 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+              }`}
+            >
+              {star}
+            </button>
+          ))}
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-555 ml-2 font-mono">
+            {rating === 1 && "Need Improvement"}
+            {rating === 2 && "Okay"}
+            {rating === 3 && "Good"}
+            {rating === 4 && "Great"}
+            {rating === 5 && "Excellent!"}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold text-zinc-450 dark:text-zinc-505 font-mono tracking-wider uppercase">MESSAGE</label>
+        <textarea
+          required
+          rows={3}
+          placeholder="Describe your ideas, feedback, or any issues you encountered..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="w-full bg-white dark:bg-zinc-955/40 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-850 dark:text-zinc-205 placeholder-zinc-450 dark:placeholder-zinc-650 focus:border-indigo-500/50 transition-all outline-none py-2 px-3 shadow-sm resize-none"
+        />
+      </div>
+
+      <Button type="submit" variant="secondary" isLoading={submitting} className="mt-1 py-2 text-xs">
+        Submit Feedback
+      </Button>
+    </form>
   );
 };

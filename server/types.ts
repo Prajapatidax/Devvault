@@ -216,3 +216,13 @@ export interface ActivityLog {
   userName?: string;
 }
 
+export interface Feedback {
+  id: string;
+  userId?: string;
+  email: string;
+  name: string;
+  message: string;
+  rating?: number;
+  createdAt: string;
+}
+

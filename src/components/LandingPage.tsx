@@ -45,6 +45,138 @@ interface LandingPageProps {
   setTheme?: (theme: "light" | "dark" | "system") => void;
 }
 
+const FeedbackForm: React.FC = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [rating, setRating] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !message) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message, rating }),
+      });
+
+      if (res.ok) {
+        setSuccess(true);
+        setName("");
+        setEmail("");
+        setMessage("");
+        setRating(null);
+      } else {
+        alert("Failed to submit feedback. Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit feedback. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+        <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-3 font-semibold">✓</div>
+        <h3 className="font-bold text-sm text-zinc-900 dark:text-white">Thank you for your feedback!</h3>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs leading-relaxed">
+          We definitely work on this. We have sent a confirmation email to your address.
+        </p>
+        <button 
+          onClick={() => setSuccess(false)}
+          className="mt-4 text-xs font-semibold text-brand-500 hover:underline cursor-pointer"
+        >
+          Send another response
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold text-zinc-550 dark:text-zinc-500 font-mono tracking-wider uppercase">YOUR NAME</label>
+          <input
+            type="text"
+            required
+            placeholder="John Doe"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full bg-white dark:bg-zinc-955/40 border border-zinc-200 dark:border-zinc-900 rounded-lg text-xs text-zinc-800 dark:text-zinc-150 placeholder-zinc-400 dark:placeholder-zinc-650 focus:border-brand-500/50 transition-all outline-none py-2 px-3 shadow-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold text-zinc-550 dark:text-zinc-500 font-mono tracking-wider uppercase">EMAIL ADDRESS</label>
+          <input
+            type="email"
+            required
+            placeholder="john@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-white dark:bg-zinc-955/40 border border-zinc-200 dark:border-zinc-900 rounded-lg text-xs text-zinc-800 dark:text-zinc-150 placeholder-zinc-400 dark:placeholder-zinc-650 focus:border-brand-500/50 transition-all outline-none py-2 px-3 shadow-sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold text-zinc-555 dark:text-zinc-500 font-mono tracking-wider uppercase">RATING</label>
+        <div className="flex items-center gap-1.5">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              onClick={() => setRating(star)}
+              className={`p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center h-8 w-8 ${
+                rating === star
+                  ? "bg-brand-500/10 border-brand-500 text-brand-650 dark:text-brand-400 font-bold shadow-sm"
+                  : "border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950/40 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+              }`}
+            >
+              {star}
+            </button>
+          ))}
+          <span className="text-[10px] text-zinc-450 dark:text-zinc-500 ml-2 font-mono">
+            {rating === 1 && "Need Improvement"}
+            {rating === 2 && "Okay"}
+            {rating === 3 && "Good"}
+            {rating === 4 && "Great"}
+            {rating === 5 && "Excellent!"}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold text-zinc-555 dark:text-zinc-500 font-mono tracking-wider uppercase">MESSAGE</label>
+        <textarea
+          required
+          rows={3}
+          placeholder="Describe your feedback, bug report, or requests..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="w-full bg-white dark:bg-zinc-955/40 border border-zinc-200 dark:border-zinc-900 rounded-lg text-xs text-zinc-800 dark:text-zinc-150 placeholder-zinc-400 dark:placeholder-zinc-650 focus:border-brand-500/50 transition-all outline-none py-2 px-3 shadow-sm resize-none"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs py-2.5 px-4 rounded-lg shadow-md cursor-pointer transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+      >
+        {submitting ? "Submitting..." : "Submit Feedback"}
+      </button>
+    </form>
+  );
+};
+
 export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterApp,
   onNavigateToRoadmap,
@@ -688,6 +820,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ))}
           </motion.div>
         </motion.section>
+
+        {/* Feedback Section */}
+        {!isWorkspaceView && (
+          <section id="feedback" className="py-12 md:py-16 border-t border-zinc-200 dark:border-zinc-900">
+            <div className="max-w-xl mx-auto p-6 rounded-2xl border border-zinc-200 dark:border-zinc-900 bg-white/40 dark:bg-zinc-950/20 backdrop-blur-sm shadow-sm">
+              <div className="text-center mb-6">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 mb-2">
+                  Feedback Workspace
+                </span>
+                <h2 className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-white">Help Us Improve DevVault</h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto leading-relaxed">
+                  We'd love to hear your thoughts, bug reports, feature suggestions, or experience.
+                </p>
+              </div>
+
+              <FeedbackForm />
+            </div>
+          </section>
+        )}
 
         {/* Footer */}
         {!isWorkspaceView && (

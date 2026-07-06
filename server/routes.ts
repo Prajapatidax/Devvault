@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import { dbManager, encrypt, decrypt } from "./db";
 import { signToken, verifyToken, hashPassword, verifyPassword } from "./auth";
-import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog } from "./types";
+import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog, Feedback } from "./types";
 import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
 import { fetchGithubStats } from "./github";
@@ -2002,6 +2002,53 @@ apiRouter.post("/landing-video", requireAuth, async (req: AuthenticatedRequest, 
     fs.writeFileSync(VIDEO_CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
 
     res.json({ message: "Landing video updated successfully", videoId, videoUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/feedback", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, email, message, rating } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: "Name, email, and message are required fields." });
+    }
+
+    // Check auth token if present
+    let userId: string | undefined = undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = verifyToken(token);
+        if (payload && payload.id) {
+          userId = payload.id;
+        }
+      } catch (err) {
+        // Ignore token decode error for optional auth
+      }
+    }
+
+    const feedbackId = crypto.randomUUID();
+    const newFeedback: Feedback = {
+      id: feedbackId,
+      userId,
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
+      message: message.trim(),
+      rating: rating ? parseInt(rating, 10) : undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    // Store feedback in DB
+    await dbManager.createFeedback(newFeedback);
+
+    // Send thank you email asynchronously
+    emailService.sendFeedbackReceivedEmail(newFeedback.email, newFeedback.name).catch((mailErr) => {
+      console.error("Failed to send feedback email notification:", mailErr);
+    });
+
+    res.status(201).json({ success: true, message: "Feedback submitted successfully." });
   } catch (error) {
     next(error);
   }
