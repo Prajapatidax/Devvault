@@ -191,12 +191,14 @@ class EmailService {
   /**
    * Sends a password reset link/token email
    */
-  async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-    const title = "Reset Your decrypt Key";
-    const resetLink = `${APP_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+  async sendPasswordResetEmail(email: string, resetToken: string, origin?: string): Promise<void> {
+    const baseUrl = origin || process.env.APP_URL || "http://localhost:3000";
+    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+    const title = "Reset Your Master Decrypt Key";
+    const resetLink = `${cleanBaseUrl}/?reset_token=${resetToken}&email=${encodeURIComponent(email)}`;
     
     const contentHtml = `
-      <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Reset Your decrypt Key</h2>
+      <h2 style="font-size: 20px; font-weight: 600; color: #ffffff; margin-top: 0; margin-bottom: 12px; text-align: center;">Reset Your Decrypt Key</h2>
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Hello,</p>
       <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">You requested a decryption key reset for your DevVault workspace. Click the button below to decrypt and reset your master password:</p>
       

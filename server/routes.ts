@@ -221,8 +221,10 @@ apiRouter.post("/auth/forgot-password", customRateLimit(300000, 3, "forgot-passw
     // Sign a token valid for 600 seconds (10 minutes)
     const resetToken = signToken({ userId: user.id, email: user.email, action: "password_reset" }, 600);
 
+    const originUrl = (req.get("origin") || req.get("referer") || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+
     try {
-      await emailService.sendPasswordResetEmail(user.email, resetToken);
+      await emailService.sendPasswordResetEmail(user.email, resetToken, originUrl);
       console.log(`[AUTH] Password reset link sent to ${user.email} (expires in 10 mins)`);
       res.json({ message: "Password reset link sent! Check your inbox. The link expires in 10 minutes." });
     } catch (mailError) {

@@ -37,16 +37,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onBackToLanding, onNavigateT
 
       setLoading(true);
       try {
-        const res = await apiFetch("/auth/forgot-password", {
+        const res = await apiFetch("/api/auth/forgot-password", {
           method: "POST",
           body: JSON.stringify({ email })
         });
 
-        if (res.error) {
-          toast(res.error, "error");
+        const data = await res.json();
+        if (!res.ok) {
+          toast(data.error || "Failed to send reset link", "error");
         } else {
           setResetSent(true);
-          toast("Password reset email sent! Valid for 10 minutes.", "success");
+          toast(data.message || "Password reset email sent! Valid for 10 minutes.", "success");
         }
       } catch (err: any) {
         toast(err.message || "Failed to send reset link", "error");

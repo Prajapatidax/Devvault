@@ -66,7 +66,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
 
     setLoading(true);
     try {
-      const res = await apiFetch("/auth/reset-password", {
+      const res = await apiFetch("/api/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({
           token,
@@ -74,14 +74,16 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
         })
       });
 
-      if (res.error) {
-        if (res.error.includes("expired")) {
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error && data.error.includes("expired")) {
           setIsExpired(true);
         }
-        toast(res.error, "error");
+        toast(data.error || "Failed to reset password", "error");
       } else {
         setSuccess(true);
-        toast("Password updated successfully!", "success");
+        toast(data.message || "Password updated successfully!", "success");
       }
     } catch (err: any) {
       toast(err.message || "Failed to reset password. The link may have expired.", "error");
