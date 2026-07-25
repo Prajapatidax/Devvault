@@ -6,8 +6,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, Badge } from "./UI";
-import { Plus, Search, Folder, Star, Trash2, BookOpen, Edit3, Eye, CloudLightning, Check, AlertCircle } from "lucide-react";
+import { Plus, Search, Folder, Star, Trash2, BookOpen, Edit3, Eye, CloudLightning, Check, AlertCircle, History } from "lucide-react";
 import { Note } from "../types";
+import { TimeMachinePanel } from "./TimeMachine";
 
 export const MarkdownNotes: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -20,6 +21,7 @@ export const MarkdownNotes: React.FC = () => {
 
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [editMode, setEditMode] = useState<"edit" | "preview">("edit");
+  const [showHistory, setShowHistory] = useState(false);
   
   // Active note working state
   const [title, setTitle] = useState("");
@@ -55,6 +57,30 @@ export const MarkdownNotes: React.FC = () => {
   useEffect(() => {
     fetchNotes();
   }, []);
+
+  useEffect(() => {
+    const handleSelectEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const noteId = customEvent.detail?.id;
+      if (noteId && notes.length > 0) {
+        const found = notes.find((n) => n.id === noteId);
+        if (found) selectNote(found);
+      }
+    };
+    window.addEventListener("devvault_select_notes", handleSelectEvent);
+    return () => window.removeEventListener("devvault_select_notes", handleSelectEvent);
+  }, [notes]);
+
+  useEffect(() => {
+    const noteId = localStorage.getItem("devvault_selected_notes_id");
+    if (noteId && notes.length > 0) {
+      const found = notes.find((n) => n.id === noteId);
+      if (found) {
+        selectNote(found);
+        localStorage.removeItem("devvault_selected_notes_id");
+      }
+    }
+  }, [notes]);
 
   const selectNote = (note: Note) => {
     // Clear any pending autosave triggers
@@ -334,7 +360,8 @@ export const MarkdownNotes: React.FC = () => {
       </aside>
 
       {/* 2. Active Note Panel */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+      <div className="flex-1 flex flex-row h-full overflow-hidden bg-white/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+        <main className="flex-1 flex flex-col h-full overflow-hidden">
         {activeNote ? (
           <div className="flex-1 flex flex-col h-full min-h-0">
             {/* Note Editor Header */}
@@ -386,26 +413,40 @@ export const MarkdownNotes: React.FC = () => {
                 </div>
 
                 {/* Edit / Preview toggles */}
-                <div className="flex bg-zinc-100 dark:bg-zinc-950 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-850">
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-zinc-100 dark:bg-zinc-950 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-850">
+                    <button
+                      onClick={() => setEditMode("edit")}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-sans cursor-pointer transition-all flex items-center gap-1 ${
+                        editMode === "edit"
+                          ? "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 text-zinc-800 dark:text-white"
+                          : "text-zinc-400 hover:text-zinc-250 border border-transparent"
+                      }`}
+                    >
+                      <Edit3 className="h-3 w-3" /> Edit
+                    </button>
+                    <button
+                      onClick={() => setEditMode("preview")}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-sans cursor-pointer transition-all flex items-center gap-1 ${
+                        editMode === "preview"
+                          ? "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 text-zinc-800 dark:text-white"
+                          : "text-zinc-400 hover:text-zinc-250 border border-transparent"
+                      }`}
+                    >
+                      <Eye className="h-3 w-3" /> Preview
+                    </button>
+                  </div>
+
                   <button
-                    onClick={() => setEditMode("edit")}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-sans cursor-pointer transition-all flex items-center gap-1 ${
-                      editMode === "edit"
-                        ? "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 text-zinc-800 dark:text-white"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                    onClick={() => setShowHistory(!showHistory)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-sans cursor-pointer transition-all flex items-center gap-1 border ${
+                      showHistory
+                        ? "bg-orange-500/10 border-orange-500 text-orange-600 dark:text-orange-400"
+                        : "border-zinc-200 dark:border-zinc-850 text-zinc-550 dark:text-zinc-450 hover:text-zinc-800 dark:hover:text-zinc-200"
                     }`}
+                    title="Toggle Revision History (Time Machine)"
                   >
-                    <Edit3 className="h-3 w-3" /> Edit
-                  </button>
-                  <button
-                    onClick={() => setEditMode("preview")}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold font-sans cursor-pointer transition-all flex items-center gap-1 ${
-                      editMode === "preview"
-                        ? "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 text-zinc-800 dark:text-white"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
-                    }`}
-                  >
-                    <Eye className="h-3 w-3" /> Preview
+                    <History className="h-3.5 w-3.5" /> History
                   </button>
                 </div>
               </div>
@@ -484,6 +525,27 @@ export const MarkdownNotes: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Time Machine Sidebar */}
+      {showHistory && activeNote && (
+        <div className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col h-full overflow-hidden shrink-0">
+          <TimeMachinePanel
+            resourceId={activeNote.id}
+            resourceType="note"
+            currentResourceData={{
+              title: activeNote.title,
+              content: activeNote.content,
+              folder: activeNote.folder,
+              tags: activeNote.tags
+            }}
+            onRestoreSuccess={() => {
+              fetchNotes();
+              toast("Note successfully restored to selected historical revision!", "success");
+            }}
+          />
+        </div>
+      )}
     </div>
+  </div>
   );
 };

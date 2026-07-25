@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, Modal, Badge } from "./UI";
-import { Plus, Search, Folder, Key, Eye, EyeOff, Copy, Trash2, ShieldCheck, ShieldAlert, FolderPlus } from "lucide-react";
+import { Plus, Search, Folder, Key, Eye, EyeOff, Copy, Trash2, ShieldCheck, ShieldAlert, FolderPlus, History } from "lucide-react";
 import { Secret } from "../types";
+import { TimeMachinePanel } from "./TimeMachine";
 
 export const SecretsManager: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -20,6 +21,7 @@ export const SecretsManager: React.FC = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeHistorySecretId, setActiveHistorySecretId] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
@@ -50,6 +52,32 @@ export const SecretsManager: React.FC = () => {
   useEffect(() => {
     fetchSecrets();
   }, []);
+
+  useEffect(() => {
+    const handleSelectEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const secretId = customEvent.detail?.id;
+      if (secretId && secrets.length > 0) {
+        const found = secrets.find(s => s.id === secretId);
+        if (found) {
+          setSearch(found.label);
+        }
+      }
+    };
+    window.addEventListener("devvault_select_secrets", handleSelectEvent);
+    return () => window.removeEventListener("devvault_select_secrets", handleSelectEvent);
+  }, [secrets]);
+
+  useEffect(() => {
+    const secretId = localStorage.getItem("devvault_selected_secrets_id");
+    if (secretId && secrets.length > 0) {
+      const found = secrets.find(s => s.id === secretId);
+      if (found) {
+        setSearch(found.label);
+        localStorage.removeItem("devvault_selected_secrets_id");
+      }
+    }
+  }, [secrets]);
 
   const handleOpenCreateModal = () => {
     setLabel("");
@@ -261,14 +289,27 @@ export const SecretsManager: React.FC = () => {
                       </code>
                     </div>
 
-                    <Button variant="danger" size="sm" onClick={() => handleDelete(s.id)} title="Delete Secret" className="p-1.5">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setActiveHistorySecretId(activeHistorySecretId === s.id ? null : s.id)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          activeHistorySecretId === s.id
+                            ? "bg-orange-500/10 text-orange-500"
+                            : "text-zinc-400 hover:text-amber-500"
+                        }`}
+                        title="Version History (Time Machine)"
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(s.id)} title="Delete Secret" className="p-1.5">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Masked/Unmasked Value Area */}
-                  <div className="flex items-center justify-between gap-2 bg-zinc-50 dark:bg-zinc-950/60 p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-850 font-mono text-[11px] w-full overflow-hidden">
-                    <span className="text-zinc-600 dark:text-zinc-300 select-all truncate flex-1 pr-2">
+                  <div className="flex items-center justify-between gap-2 bg-zinc-50 dark:bg-zinc-955/60 p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-850 font-mono text-[11px] w-full overflow-hidden">
+                    <span className="text-zinc-650 dark:text-zinc-300 select-all truncate flex-1 pr-2">
                       {isRevealed ? decryptedCache[s.id] : "••••••••••••••••"}
                     </span>
 
@@ -297,6 +338,39 @@ export const SecretsManager: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Inline Time Machine Revision Log */}
+                  {activeHistorySecretId === s.id && (
+                    <div className="border-t border-zinc-200 dark:border-zinc-850 pt-3 mt-2 flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 font-mono tracking-wider uppercase">
+                          Secret Version Logs
+                        </span>
+                        <button
+                          onClick={() => setActiveHistorySecretId(null)}
+                          className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-mono cursor-pointer"
+                        >
+                          CLOSE HISTORY
+                        </button>
+                      </div>
+                      <div className="h-64 border border-zinc-205 dark:border-zinc-850 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 select-none">
+                        <TimeMachinePanel
+                          resourceId={s.id}
+                          resourceType="secret"
+                          currentResourceData={{
+                            label: s.label,
+                            key: s.key,
+                            folder: s.folder
+                          }}
+                          onRestoreSuccess={() => {
+                            fetchSecrets();
+                            setActiveHistorySecretId(null);
+                            toast("Secret restored to selected historical revision!", "success");
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

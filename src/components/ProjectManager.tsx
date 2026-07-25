@@ -6,9 +6,10 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, TextArea, Badge, Modal } from "./UI";
-import { Plus, Search, Key, Trash2, Edit, ExternalLink, GitBranch, Database, ShieldAlert, ShieldCheck, X, Users } from "lucide-react";
+import { Plus, Search, Key, Trash2, Edit, ExternalLink, GitBranch, Database, ShieldAlert, ShieldCheck, X, Users, History } from "lucide-react";
 import { Project, ProjectStatus, ProjectPriority } from "../types";
 import { TeamPage } from "./TeamPage";
+import { TimeMachinePanel } from "./TimeMachine";
 
 export const ProjectManager: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -20,6 +21,7 @@ export const ProjectManager: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [activeTeamProject, setActiveTeamProject] = useState<{ id: string; name: string } | null>(null);
+  const [activeHistoryProjectId, setActiveHistoryProjectId] = useState<string | null>(null);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,6 +67,32 @@ export const ProjectManager: React.FC = () => {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    const handleSelectEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const projectId = customEvent.detail?.id;
+      if (projectId && projects.length > 0) {
+        const found = projects.find(p => p.id === projectId);
+        if (found) {
+          setSearch(found.name);
+        }
+      }
+    };
+    window.addEventListener("devvault_select_projects", handleSelectEvent);
+    return () => window.removeEventListener("devvault_select_projects", handleSelectEvent);
+  }, [projects]);
+
+  useEffect(() => {
+    const projectId = localStorage.getItem("devvault_selected_projects_id");
+    if (projectId && projects.length > 0) {
+      const found = projects.find(p => p.id === projectId);
+      if (found) {
+        setSearch(found.name);
+        localStorage.removeItem("devvault_selected_projects_id");
+      }
+    }
+  }, [projects]);
 
   const handleOpenCreateModal = () => {
     setEditingProject(null);
@@ -349,6 +377,17 @@ export const ProjectManager: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setActiveHistoryProjectId(activeHistoryProjectId === p.id ? null : p.id)}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        activeHistoryProjectId === p.id
+                          ? "bg-orange-500/10 text-orange-500"
+                          : "text-zinc-400 hover:text-amber-500"
+                      }`}
+                      title="Version History (Time Machine)"
+                    >
+                      <History className="h-4 w-4" />
+                    </button>
                     <Button variant="ghost" size="sm" onClick={() => setActiveTeamProject({ id: p.id, name: p.name })} title="Manage Team">
                       <Users className="h-3.5 w-3.5 text-indigo-500" />
                     </Button>
@@ -379,7 +418,7 @@ export const ProjectManager: React.FC = () => {
                     {p.techStack.map((tech) => (
                       <span
                         key={tech}
-                        className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-650 dark:text-zinc-400 font-mono"
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-955 border border-zinc-200 dark:border-zinc-800 text-zinc-650 dark:text-zinc-400 font-mono"
                       >
                         {tech}
                       </span>
@@ -466,6 +505,50 @@ export const ProjectManager: React.FC = () => {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Inline Time Machine Revision Log */}
+                {activeHistoryProjectId === p.id && (
+                  <div className="border-t border-zinc-200 dark:border-zinc-850 pt-3 mt-2 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 font-mono tracking-wider uppercase">
+                        Project Version Logs
+                      </span>
+                      <button
+                        onClick={() => setActiveHistoryProjectId(null)}
+                        className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-mono cursor-pointer"
+                      >
+                        CLOSE HISTORY
+                      </button>
+                    </div>
+                    <div className="h-64 border border-zinc-205 dark:border-zinc-850 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 select-none">
+                      <TimeMachinePanel
+                        resourceId={p.id}
+                        resourceType="project"
+                        currentResourceData={{
+                          name: p.name,
+                          description: p.description,
+                          status: p.status,
+                          techStack: p.techStack,
+                          deadline: p.deadline,
+                          priority: p.priority,
+                          repository: p.repository,
+                          liveUrl: p.liveUrl,
+                          server: p.server,
+                          database: p.database,
+                          domain: p.domain,
+                          apiKeys: p.apiKeys,
+                          notes: p.notes,
+                          progress: p.progress
+                        }}
+                        onRestoreSuccess={() => {
+                          fetchProjects();
+                          setActiveHistoryProjectId(null);
+                          toast("Project restored to selected historical revision!", "success");
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

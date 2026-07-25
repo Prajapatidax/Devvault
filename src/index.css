@@ -45,6 +45,7 @@
   --color-indigo-650: #ff6200; /* Primary brand orange accent */
   --color-indigo-700: #c2410c;
   --color-indigo-800: #9a3412;
+  --color-indigo-850: #431407;
   --color-indigo-900: #7c2d12;
   --color-indigo-950: #431407;
 
@@ -155,6 +156,206 @@ body {
   transform-style: preserve-3d;
 }
 
+/* ==========================================
+   MULTI-THEME STYLING CONFIGURATIONS
+   ========================================== */
+
+/* Nord Theme overrides */
+:root.theme-nord {
+  --color-zinc-950: #242933;
+  --color-zinc-900: #2e3440;
+  --color-zinc-850: #3b4252;
+  --color-zinc-800: #434c5e;
+  --color-zinc-700: #4c566a;
+  
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #eceff4;
+  --color-zinc-200: #e5e9f0;
+  --color-zinc-300: #d8dee9;
+  --color-zinc-400: #d8dee9;
+  --color-zinc-500: #4c566a;
+  
+  --color-brand-500: #88c0d0;
+  --color-indigo-50: #f0f9ff;
+  --color-indigo-100: #e0f2fe;
+  --color-indigo-200: #bae6fd;
+  --color-indigo-300: #7dd3fc;
+  --color-indigo-400: #38bdf8;
+  --color-indigo-500: #0ea5e9;
+  --color-indigo-600: #81a1c1;
+  --color-indigo-650: #88c0d0;
+  --color-indigo-700: #5e81ac;
+  --color-indigo-800: #075985;
+}
+
+/* Tokyo Night Theme overrides */
+:root.theme-tokyo-night {
+  --color-zinc-950: #16161e;
+  --color-zinc-900: #1a1b26;
+  --color-zinc-850: #20212e;
+  --color-zinc-800: #24283b;
+  --color-zinc-700: #414868;
+  
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #c0caf5;
+  --color-zinc-200: #a9b1d6;
+  --color-zinc-300: #a9b1d6;
+  --color-zinc-400: #787c99;
+  --color-zinc-500: #565f89;
+  
+  --color-brand-500: #7aa2f7;
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #7aa2f7;
+  --color-indigo-600: #bb9af3;
+  --color-indigo-650: #bb9af3;
+  --color-indigo-700: #89ddff;
+  --color-indigo-800: #3730a3;
+}
+
+/* Catppuccin Mocha Theme overrides */
+:root.theme-catppuccin {
+  --color-zinc-950: #11111b;
+  --color-zinc-900: #181825;
+  --color-zinc-850: #1e1e2e;
+  --color-zinc-800: #313244;
+  --color-zinc-700: #45475a;
+  
+  --color-zinc-50: #fdfafb;
+  --color-zinc-100: #f5e0dc;
+  --color-zinc-200: #cdd6f4;
+  --color-zinc-300: #bac2de;
+  --color-zinc-400: #a6adc8;
+  --color-zinc-500: #585b70;
+  
+  --color-brand-500: #cba6f7;
+  --color-indigo-50: #faf5ff;
+  --color-indigo-100: #f3e8ff;
+  --color-indigo-200: #e9d5ff;
+  --color-indigo-300: #d8b4fe;
+  --color-indigo-400: #c084fc;
+  --color-indigo-500: #a855f7;
+  --color-indigo-600: #b4befe;
+  --color-indigo-650: #cba6f7;
+  --color-indigo-700: #89b4fa;
+  --color-indigo-800: #6b21a8;
+}
+
+/* Dracula Theme overrides */
+:root.theme-dracula {
+  --color-zinc-950: #1e1f29;
+  --color-zinc-900: #282a36;
+  --color-zinc-850: #343746;
+  --color-zinc-800: #44475a;
+  --color-zinc-700: #6272a4;
+  
+  --color-zinc-50: #fdfcfb;
+  --color-zinc-100: #f8f8f2;
+  --color-zinc-200: #e2e2dc;
+  --color-zinc-300: #bd93f9;
+  --color-zinc-400: #ff79c6;
+  --color-zinc-500: #6272a4;
+  
+  --color-brand-500: #bd93f9;
+  --color-indigo-50: #faf5ff;
+  --color-indigo-100: #f3e8ff;
+  --color-indigo-200: #e9d5ff;
+  --color-indigo-300: #d8b4fe;
+  --color-indigo-400: #c084fc;
+  --color-indigo-500: #a855f7;
+  --color-indigo-600: #ff79c6;
+  --color-indigo-650: #bd93f9;
+  --color-indigo-700: #ff92df;
+  --color-indigo-800: #6b21a8;
+}
+
+/* One Dark Theme overrides */
+:root.theme-one-dark {
+  --color-zinc-950: #1e222b;
+  --color-zinc-900: #282c34;
+  --color-zinc-850: #2c313c;
+  --color-zinc-800: #3e4452;
+  --color-zinc-700: #5c6370;
+  
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #abb2bf;
+  --color-zinc-200: #abb2bf;
+  --color-zinc-300: #61afef;
+  --color-zinc-400: #abb2bf;
+  --color-zinc-500: #5c6370;
+  
+  --color-brand-500: #61afef;
+  --color-indigo-50: #f0f9ff;
+  --color-indigo-100: #e0f2fe;
+  --color-indigo-200: #bae6fd;
+  --color-indigo-300: #7dd3fc;
+  --color-indigo-400: #38bdf8;
+  --color-indigo-500: #0ea5e9;
+  --color-indigo-600: #c678dd;
+  --color-indigo-650: #61afef;
+  --color-indigo-700: #e06c75;
+  --color-indigo-800: #075985;
+}
+
+/* Solarized Dark Theme overrides */
+:root.theme-solarized {
+  --color-zinc-950: #001e26;
+  --color-zinc-900: #002b36;
+  --color-zinc-850: #073642;
+  --color-zinc-800: #073642;
+  --color-zinc-700: #586e75;
+  
+  --color-zinc-50: #fdfbf7;
+  --color-zinc-100: #93a1a1;
+  --color-zinc-200: #839496;
+  --color-zinc-300: #268bd2;
+  --color-zinc-400: #657b83;
+  --color-zinc-500: #586e75;
+  
+  --color-brand-500: #2aa198;
+  --color-indigo-50: #f0fdfa;
+  --color-indigo-100: #ccfbf1;
+  --color-indigo-200: #99f6e4;
+  --color-indigo-300: #5eead4;
+  --color-indigo-400: #2dd4bf;
+  --color-indigo-500: #14b8a6;
+  --color-indigo-600: #268bd2;
+  --color-indigo-650: #2aa198;
+  --color-indigo-700: #b58900;
+  --color-indigo-800: #115e59;
+}
+
+/* GitHub Dark Theme overrides */
+:root.theme-github-dark {
+  --color-zinc-950: #0d1117;
+  --color-zinc-900: #161b22;
+  --color-zinc-850: #21262d;
+  --color-zinc-800: #30363d;
+  --color-zinc-700: #484f58;
+  
+  --color-zinc-50: #fafafc;
+  --color-zinc-100: #f0f6fc;
+  --color-zinc-200: #c9d1d9;
+  --color-zinc-300: #58a6ff;
+  --color-zinc-400: #8b949e;
+  --color-zinc-500: #484f58;
+  
+  --color-brand-500: #58a6ff;
+  --color-indigo-50: #f0f9ff;
+  --color-indigo-100: #e0f2fe;
+  --color-indigo-200: #bae6fd;
+  --color-indigo-300: #7dd3fc;
+  --color-indigo-400: #38bdf8;
+  --color-indigo-500: #0ea5e9;
+  --color-indigo-600: #1f6feb;
+  --color-indigo-650: #58a6ff;
+  --color-indigo-700: #bc8cff;
+  --color-indigo-800: #075985;
+}
+
 .spotlight-card {
   transform: perspective(1000px) rotateX(var(--rotate-x, 0deg)) rotateY(var(--rotate-y, 0deg)) translateZ(0);
   transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s ease, background-color 0.3s ease;
@@ -168,5 +369,93 @@ body {
 
 .spotlight-card-inner {
   transform-style: preserve-3d;
+}
+
+/* Compact layout mode sizing overrides */
+:root.layout-compact {
+  font-size: 13px !important;
+}
+:root.layout-compact input,
+:root.layout-compact button,
+:root.layout-compact select,
+:root.layout-compact textarea {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.75rem !important;
+}
+:root.layout-compact .p-6 {
+  padding: 0.75rem !important;
+}
+:root.layout-compact .gap-6 {
+  gap: 0.75rem !important;
+}
+:root.layout-compact .p-5 {
+  padding: 0.75rem !important;
+}
+:root.layout-compact .h-16 {
+  height: 3rem !important;
+}
+:root.layout-compact aside {
+  width: 12rem !important;
+}
+
+/* Cyberpunk Security Dashboard Keyframe Animations */
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes blinking-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes glow-pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(255, 77, 109, 0.2), inset 0 0 4px rgba(255, 77, 109, 0.1);
+    border-color: rgba(255, 77, 109, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(255, 77, 109, 0.6), inset 0 0 8px rgba(255, 77, 109, 0.3);
+    border-color: rgba(255, 77, 109, 0.8);
+  }
+}
+
+@keyframes scan-grid-pulse {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 4s linear infinite;
+  transform-origin: center;
+}
+
+.animate-blinking-cursor {
+  animation: blinking-cursor 1s step-end infinite;
+}
+
+.animate-glow-pulse-red {
+  animation: glow-pulse-red 2s infinite ease-in-out;
+}
+
+.bg-cyber-grid {
+  background-image: 
+    linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: center;
+}
+
+.bg-radial-glow {
+  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.08) 0%, transparent 70%);
 }
 

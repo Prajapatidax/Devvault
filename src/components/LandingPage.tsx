@@ -33,13 +33,18 @@ import {
   HelpCircle,
   LogIn,
   Sun,
-  Moon
+  Moon,
+  Search,
+  History,
+  ShieldAlert,
+  Brain
 } from "lucide-react";
 import { ArtificialLogo } from "../App";
 
 interface LandingPageProps {
   onEnterApp: () => void;
   onNavigateToRoadmap?: () => void;
+  onNavigateToLegal?: (tab: "terms" | "privacy") => void;
   isWorkspaceView?: boolean; // If true, rendering inside the authenticated workspace
   theme?: "light" | "dark" | "system";
   setTheme?: (theme: "light" | "dark" | "system") => void;
@@ -180,6 +185,7 @@ const FeedbackForm: React.FC = () => {
 export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterApp,
   onNavigateToRoadmap,
+  onNavigateToLegal,
   isWorkspaceView = false,
   theme = "dark",
   setTheme
@@ -188,6 +194,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const { toast } = useToast();
 
   const [headerHovered, setHeaderHovered] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_landing_saw_update_modal") !== "true";
+  });
 
   // Floating decorative code/cryptographic elements for the background
   const floatingSymbols = [
@@ -848,22 +857,171 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="font-bold text-zinc-900 dark:text-white">DevVault</span>
               <span>© 2026. All rights reserved.</span>
             </div>
-            <div className="flex items-center gap-4 text-zinc-550 dark:text-zinc-400">
-              <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">Security Audits</span>
-              <span>•</span>
-              <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">API Agreement</span>
-              {onNavigateToRoadmap && (
+            <div className="flex flex-wrap items-center gap-3 text-zinc-550 dark:text-zinc-400">
+              {onNavigateToLegal && (
                 <>
+                  <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer" onClick={() => onNavigateToLegal("terms")}>Terms & Conditions</span>
                   <span>•</span>
-                  <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer text-orange-650 dark:text-orange-400 font-semibold" onClick={onNavigateToRoadmap}>Upcoming Features</span>
+                  <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer" onClick={() => onNavigateToLegal("privacy")}>Privacy Policy</span>
+                  <span>•</span>
                 </>
               )}
-              <span>•</span>
+              {onNavigateToRoadmap && (
+                <>
+                  <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer text-orange-650 dark:text-orange-400 font-semibold" onClick={onNavigateToRoadmap}>Upcoming Features</span>
+                  <span>•</span>
+                </>
+              )}
               <span className="hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer" onClick={onEnterApp}>Enter Workspace</span>
             </div>
           </footer>
         )}
       </div>
+
+      {/* Onboarding Dialog Overlay (Notification Modal) */}
+      <AnimatePresence>
+        {showUpdateModal && !isWorkspaceView && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-[#0b0f17] border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl relative overflow-hidden text-zinc-800 dark:text-zinc-100 font-sans"
+            >
+              {/* Decorative radial glows */}
+              <div className="absolute -top-10 -right-10 w-36 h-36 bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
+
+              {/* Title */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-10 w-10 bg-emerald-500/10 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-450 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+                  <Sparkles className="h-5.5 w-5.5 animate-pulse" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-zinc-900 dark:text-white">DevVault Horizon Upgrades</h2>
+                  <p className="text-[9px] text-zinc-400 font-mono">WORKSPACE UPGRADED TO V1.1</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-relaxed mb-6">
+                Explore the newly installed workspace upgrades in this session alongside upcoming features scheduled next on the development roadmap.
+              </p>
+
+              {/* Dual-column: Left (Released), Right (What's Next) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                
+                {/* Column 1: Released in this Session */}
+                <div className="flex flex-col gap-4">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-450 font-mono tracking-wider uppercase">
+                    Released in this Session
+                  </span>
+                  
+                  {/* Command Palette */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-emerald-500 shrink-0">
+                      <Search className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                        Global Command Palette
+                        <kbd className="px-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-[9px] font-mono text-zinc-550 dark:text-zinc-350">Ctrl+K</kbd>
+                      </h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Press Ctrl+K (or Cmd+K) anywhere to search notes, keys, and projects instantly.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Time Machine */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-emerald-500 shrink-0">
+                      <History className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white">Version Time Machine</h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Click the clock 🕒 icon on notes and card items to inspect and restore past edits.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Security Scanner */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-emerald-500 shrink-0">
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white">Security Leak Detector</h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Open the Security Detector tab from the sidebar to scan for raw credential leaks locally.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 2: What's Next in Phase 2 */}
+                <div className="flex flex-col gap-4">
+                  <span className="text-[10px] font-bold text-indigo-650 dark:text-indigo-400 font-mono tracking-wider uppercase">
+                    What's Next (Phase 2 AI)
+                  </span>
+
+                  {/* AI Memory */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-555 dark:text-indigo-400 shrink-0">
+                      <Brain className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white">Semantic AI Memory</h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Full vector storage and semantic search across markdown files, code blocks, and vault DBs.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Project Architect */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-555 dark:text-indigo-400 shrink-0">
+                      <Cpu className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white">AI Project Architect</h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Instant system architecture maps and boilerplate configurations generated matching your stack.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Debug Assistant */}
+                  <div className="flex items-start gap-2.5 p-3 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-850 rounded-xl">
+                    <div className="p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-indigo-555 dark:text-indigo-400 shrink-0">
+                      <Bug className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white">AI Debug Assistant</h4>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
+                        Integrated compiler exception listener that diagnoses errors and outputs repair commits automatically.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    setShowUpdateModal(false);
+                    localStorage.setItem("devvault_landing_saw_update_modal", "true");
+                  }}
+                  className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-5 rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] cursor-pointer"
+                >
+                  Got it, Explore!
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

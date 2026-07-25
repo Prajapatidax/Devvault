@@ -7,9 +7,22 @@ import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import zlib from "zlib";
 import { dbManager, encrypt, decrypt } from "./db";
+
+// Compression helpers for Time Machine snapshots
+function compressData(dataStr: string): string {
+  const compressed = zlib.deflateSync(Buffer.from(dataStr, "utf8"));
+  return compressed.toString("base64");
+}
+
+function decompressData(compressedBase64: string): string {
+  const buf = Buffer.from(compressedBase64, "base64");
+  const decompressed = zlib.inflateSync(buf);
+  return decompressed.toString("utf8");
+}
 import { signToken, verifyToken, hashPassword, verifyPassword } from "./auth";
-import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog, Feedback } from "./types";
+import { User, Project, Secret, Snippet, Note, Expense, RepositoryTracker, Bug, Deployment, ProjectStatus, ProjectPriority, ExpenseType, BugStatus, ProjectMember, Invitation, Notification, ActivityLog, Feedback, Snapshot } from "./types";
 import { requireProjectPermission, RealtimeManager, ActivityLogger } from "./collaboration";
 import { GoogleGenAI } from "@google/genai";
 import { fetchGithubStats } from "./github";
@@ -186,6 +199,71 @@ apiRouter.post("/auth/login", async (req: Request, res: Response, next: NextFunc
     const token = signToken({ userId: user.id });
     const { passwordHash, ...userResponse } = user;
     res.json({ token, user: userResponse });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Forgot Password Endpoint - Sends a 10-minute reset link
+apiRouter.post("/auth/forgot-password", customRateLimit(300000, 3, "forgot-password"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await dbManager.getUserByEmail(email);
+    if (!user) {
+      // Security: Do not reveal user existence
+      return res.json({ message: "If an account with that email exists, a password reset link valid for 10 minutes has been sent." });
+    }
+
+    // Sign a token valid for 600 seconds (10 minutes)
+    const resetToken = signToken({ userId: user.id, email: user.email, action: "password_reset" }, 600);
+
+    try {
+      await emailService.sendPasswordResetEmail(user.email, resetToken);
+      console.log(`[AUTH] Password reset link sent to ${user.email} (expires in 10 mins)`);
+      res.json({ message: "Password reset link sent! Check your inbox. The link expires in 10 minutes." });
+    } catch (mailError) {
+      console.error(`[AUTH] Failed to send password reset email:`, mailError);
+      res.status(500).json({ error: "Failed to send password reset email. Please verify email settings and try again." });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Reset Password Endpoint - Verifies 10-minute token and updates password
+apiRouter.post("/auth/reset-password", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: "Reset token and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload || payload.action !== "password_reset" || !payload.userId) {
+      return res.status(400).json({ 
+        error: "Password reset link is invalid or has expired (10-minute limit). Please request a new link." 
+      });
+    }
+
+    const user = await dbManager.getUserById(payload.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User account not found" });
+    }
+
+    const newHash = hashPassword(newPassword);
+    await dbManager.updateUserPassword(user.id, newHash);
+
+    console.log(`[AUTH] Password successfully reset for user ${user.email}`);
+    res.json({ message: "Password updated successfully! You can now sign in with your new password." });
   } catch (error) {
     next(error);
   }
@@ -514,7 +592,24 @@ apiRouter.get("/dashboard/stats", requireAuth, async (req: AuthenticatedRequest,
 // ==========================================
 apiRouter.get("/projects", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    res.json(await dbManager.getProjects(req.user!.id));
+    const projects = await dbManager.getProjects(req.user!.id);
+    const mapped = projects.map((p) => {
+      let apiKeyNames: string[] = [];
+      if (p.apiKeys) {
+        try {
+          const decrypted = decrypt(p.apiKeys);
+          const parsed = JSON.parse(decrypted);
+          apiKeyNames = Object.keys(parsed);
+        } catch (e) {
+          // ignore parsing error
+        }
+      }
+      return {
+        ...p,
+        apiKeyNames
+      };
+    });
+    res.json(mapped);
   } catch (error) {
     next(error);
   }
@@ -557,6 +652,7 @@ apiRouter.post("/projects", requireAuth, async (req: AuthenticatedRequest, res: 
     };
 
     await dbManager.createProject(newProject);
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, newProject.id, "project", "Auto-saved: Project created", newProject);
     res.status(201).json(newProject);
   } catch (error) {
     next(error);
@@ -577,6 +673,7 @@ apiRouter.put("/projects/:id", requireAuth, requireProjectPermission(["owner", "
     if (!updated) {
       return res.status(404).json({ error: "Project not found" });
     }
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, id, "project", "Auto-saved: Project updated", updated);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -653,6 +750,7 @@ apiRouter.post("/secrets", requireAuth, async (req: AuthenticatedRequest, res: R
     };
 
     await dbManager.createSecret(newSecret);
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, newSecret.id, "secret", "Auto-saved: Secret created", newSecret);
     res.status(201).json({
       id: newSecret.id,
       label: newSecret.label,
@@ -723,6 +821,7 @@ apiRouter.post("/snippets", requireAuth, async (req: AuthenticatedRequest, res: 
     };
 
     await dbManager.createSnippet(newSnippet);
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, newSnippet.id, "snippet", "Auto-saved: Snippet created", newSnippet);
     res.status(201).json(newSnippet);
   } catch (error) {
     next(error);
@@ -735,6 +834,7 @@ apiRouter.put("/snippets/:id", requireAuth, async (req: AuthenticatedRequest, re
     if (!updated) {
       return res.status(404).json({ error: "Snippet not found" });
     }
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, req.params.id, "snippet", "Auto-saved: Snippet updated", updated);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -784,6 +884,7 @@ apiRouter.post("/notes", requireAuth, async (req: AuthenticatedRequest, res: Res
     };
 
     await dbManager.createNote(newNote);
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, newNote.id, "note", "Auto-saved: Note created", newNote);
     res.status(201).json(newNote);
   } catch (error) {
     next(error);
@@ -796,6 +897,7 @@ apiRouter.put("/notes/:id", requireAuth, async (req: AuthenticatedRequest, res: 
     if (!updated) {
       return res.status(404).json({ error: "Note not found" });
     }
+    await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, req.params.id, "note", "Auto-saved: Note updated", updated);
     res.json(updated);
   } catch (error) {
     next(error);
@@ -902,6 +1004,7 @@ apiRouter.post("/repositories", requireAuth, async (req: AuthenticatedRequest, r
       };
 
       await dbManager.createRepository(newRepo);
+      await saveSnapshotHelper(req.user!.id, req.user!.email, req.user!.name, newRepo.id, "tracker", "Auto-saved: Tracker enrolled", newRepo);
       res.status(201).json(newRepo);
     } catch (apiError: any) {
       console.warn("GitHub API error during repository enrollment:", apiError);
@@ -932,6 +1035,10 @@ apiRouter.post("/repositories/:id/sync", requireAuth, async (req: AuthenticatedR
         openPr: liveStats.openPr,
         latestRelease: liveStats.latestRelease
       });
+
+      if (updated) {
+        await saveSnapshotHelper(userId, req.user!.email, req.user!.name, id, "tracker", "Auto-saved: Tracker synced stats", updated);
+      }
 
       res.json(updated);
     } catch (apiError: any) {
@@ -2053,4 +2160,212 @@ apiRouter.post("/feedback", async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 });
+
+// ==========================================
+// TIME MACHINE MODULE (SNAPSHOTS)
+// ==========================================
+
+async function saveSnapshotHelper(
+  userId: string,
+  userEmail: string,
+  userName: string,
+  resourceId: string,
+  resourceType: string,
+  description: string,
+  rawResource: any
+) {
+  try {
+    const dataStr = JSON.stringify(rawResource);
+    const compressed = compressData(dataStr);
+    const encrypted = encrypt(compressed);
+
+    const snapshot: Snapshot = {
+      id: crypto.randomUUID(),
+      userId,
+      resourceId,
+      resourceType,
+      data: encrypted,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        authorName: userName,
+        authorEmail: userEmail,
+        description
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    await dbManager.createSnapshot(snapshot);
+    return snapshot;
+  } catch (err) {
+    console.error("Failed to save snapshot helper:", err);
+    throw err;
+  }
+}
+
+apiRouter.get("/snapshots", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { resourceId } = req.query;
+    if (!resourceId) {
+      return res.status(400).json({ error: "resourceId is required" });
+    }
+    const list = await dbManager.getSnapshots(req.user!.id, String(resourceId));
+    
+    // We only return metadata and ID in lists
+    const result = list.map(s => ({
+      id: s.id,
+      userId: s.userId,
+      resourceId: s.resourceId,
+      resourceType: s.resourceType,
+      metadata: s.metadata,
+      createdAt: s.createdAt
+    }));
+    
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/snapshots/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const snapshot = await dbManager.getSnapshotById(req.params.id, req.user!.id);
+    if (!snapshot) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    
+    const decrypted = decrypt(snapshot.data);
+    const decompressed = decompressData(decrypted);
+    const rawData = JSON.parse(decompressed);
+    
+    res.json({
+      ...snapshot,
+      rawData
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/snapshots", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { resourceId, resourceType, description } = req.body;
+    if (!resourceId || !resourceType || !description) {
+      return res.status(400).json({ error: "resourceId, resourceType, and description are required" });
+    }
+
+    let rawResource: any = null;
+    const userId = req.user!.id;
+
+    if (resourceType === "project") {
+      rawResource = await dbManager.getProjectById(resourceId, userId);
+    } else if (resourceType === "note") {
+      const notes = await dbManager.getNotes(userId);
+      rawResource = notes.find(n => n.id === resourceId);
+    } else if (resourceType === "secret") {
+      const secrets = await dbManager.getSecrets(userId);
+      rawResource = secrets.find(s => s.id === resourceId);
+    } else if (resourceType === "snippet") {
+      const snippets = await dbManager.getSnippets(userId);
+      rawResource = snippets.find(s => s.id === resourceId);
+    } else if (resourceType === "tracker") {
+      const trackers = await dbManager.getRepositories(userId);
+      rawResource = trackers.find(t => t.id === resourceId);
+    } else {
+      return res.status(400).json({ error: "Invalid resourceType" });
+    }
+
+    if (!rawResource) {
+      return res.status(404).json({ error: "Resource not found" });
+    }
+
+    const snapshot = await saveSnapshotHelper(
+      userId,
+      req.user!.email,
+      req.user!.name,
+      resourceId,
+      resourceType,
+      description,
+      rawResource
+    );
+
+    res.status(201).json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/snapshots/:id/restore", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const snapshot = await dbManager.getSnapshotById(req.params.id, req.user!.id);
+    if (!snapshot) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+
+    const decrypted = decrypt(snapshot.data);
+    const decompressed = decompressData(decrypted);
+    const rawResource = JSON.parse(decompressed);
+
+    const userId = req.user!.id;
+    const { resourceType, resourceId } = snapshot;
+
+    let currentState: any = null;
+    if (resourceType === "project") {
+      currentState = await dbManager.getProjectById(resourceId, userId);
+    } else if (resourceType === "note") {
+      const notes = await dbManager.getNotes(userId);
+      currentState = notes.find(n => n.id === resourceId);
+    } else if (resourceType === "secret") {
+      const secrets = await dbManager.getSecrets(userId);
+      currentState = secrets.find(s => s.id === resourceId);
+    } else if (resourceType === "snippet") {
+      const snippets = await dbManager.getSnippets(userId);
+      currentState = snippets.find(s => s.id === resourceId);
+    } else if (resourceType === "tracker") {
+      const trackers = await dbManager.getRepositories(userId);
+      currentState = trackers.find(t => t.id === resourceId);
+    }
+
+    if (currentState) {
+      await saveSnapshotHelper(
+        userId,
+        req.user!.email,
+        req.user!.name,
+        resourceId,
+        resourceType,
+        `Auto-backup before restoring version from ${new Date(snapshot.metadata.timestamp).toLocaleDateString()}`,
+        currentState
+      );
+    }
+
+    if (resourceType === "project") {
+      await dbManager.updateProject(resourceId, userId, rawResource);
+    } else if (resourceType === "note") {
+      await dbManager.updateNote(resourceId, userId, rawResource);
+    } else if (resourceType === "snippet") {
+      await dbManager.updateSnippet(resourceId, userId, rawResource);
+    } else if (resourceType === "tracker") {
+      await dbManager.updateRepository(resourceId, userId, rawResource);
+    } else if (resourceType === "secret") {
+      await dbManager.deleteSecret(resourceId, userId);
+      await dbManager.createSecret(rawResource);
+    }
+
+    res.json({ message: "Resource restored successfully", restoredData: rawResource });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/snapshots/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const success = await dbManager.deleteSnapshot(req.params.id, req.user!.id);
+    if (!success) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    res.json({ message: "Snapshot deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 

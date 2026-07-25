@@ -202,3 +202,18 @@ export interface ActivityLog {
   userName?: string;
 }
 
+export interface Snapshot {
+  id: string;
+  userId: string;
+  resourceId: string;
+  resourceType: string;
+  data: string; // Encrypted and compressed JSON string
+  metadata: {
+    timestamp: string;
+    authorName: string;
+    authorEmail: string;
+    description: string;
+  };
+  createdAt: string;
+}
+

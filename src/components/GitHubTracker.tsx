@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, Modal, Badge } from "./UI";
-import { Plus, Github, GitBranch, Star, AlertCircle, GitCommit, GitPullRequest, Trash2, ExternalLink, RefreshCw } from "lucide-react";
+import { Plus, Github, GitBranch, Star, AlertCircle, GitCommit, GitPullRequest, Trash2, ExternalLink, RefreshCw, History } from "lucide-react";
 import { RepositoryTracker } from "../types";
+import { TimeMachinePanel } from "./TimeMachine";
 
 export const GitHubTracker: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -15,6 +16,7 @@ export const GitHubTracker: React.FC = () => {
 
   const [repos, setRepos] = useState<RepositoryTracker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeHistoryRepoId, setActiveHistoryRepoId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tokenConfigured, setTokenConfigured] = useState(true);
 
@@ -217,6 +219,17 @@ export const GitHubTracker: React.FC = () => {
                 </div>
 
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => setActiveHistoryRepoId(activeHistoryRepoId === r.id ? null : r.id)}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      activeHistoryRepoId === r.id
+                        ? "bg-orange-500/10 text-orange-500"
+                        : "text-zinc-400 hover:text-amber-500"
+                    }`}
+                    title="Version History (Time Machine)"
+                  >
+                    <History className="h-4 w-4" />
+                  </button>
                   <Button variant="secondary" size="sm" onClick={() => handleSyncRepo(r.id)} title="Sync Stats" className="p-1.5">
                     <RefreshCw className="h-3.5 w-3.5" />
                   </Button>
@@ -262,6 +275,44 @@ export const GitHubTracker: React.FC = () => {
                 <div className="pt-2 border-t border-zinc-150 dark:border-zinc-850/50 flex justify-between items-center text-[10px] font-mono text-zinc-500">
                   <span>LATEST STABLE TAG</span>
                   <Badge variant="blue">{r.latestRelease}</Badge>
+                </div>
+              )}
+
+              {/* Inline Time Machine Revision Log */}
+              {activeHistoryRepoId === r.id && (
+                <div className="border-t border-zinc-200 dark:border-zinc-850 pt-3 mt-2 flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 font-mono tracking-wider uppercase">
+                      Git Tracker Version Logs
+                    </span>
+                    <button
+                      onClick={() => setActiveHistoryRepoId(null)}
+                      className="text-[9px] font-bold text-zinc-455 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-mono cursor-pointer"
+                    >
+                      CLOSE HISTORY
+                    </button>
+                  </div>
+                  <div className="h-64 border border-zinc-205 dark:border-zinc-850 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 select-none">
+                    <TimeMachinePanel
+                      resourceId={r.id}
+                      resourceType="repository"
+                      currentResourceData={{
+                        name: r.name,
+                        url: r.url,
+                        branch: r.branch,
+                        stars: r.stars,
+                        commits: r.commits,
+                        issues: r.issues,
+                        openPr: r.openPr,
+                        latestRelease: r.latestRelease
+                      }}
+                      onRestoreSuccess={() => {
+                        fetchRepos();
+                        setActiveHistoryRepoId(null);
+                        toast("Repository restored to selected historical revision!", "success");
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

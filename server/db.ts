@@ -24,7 +24,8 @@ import {
   Notification,
   ActivityLog,
   EmailVerification,
-  Feedback
+  Feedback,
+  Snapshot
 } from "./types";
 
 const DB_FILE = path.join(process.cwd(), "server", "db.json");
@@ -51,6 +52,7 @@ interface DatabaseSchema {
   activityLogs: ActivityLog[];
   emailVerifications: EmailVerification[];
   feedbacks: Feedback[];
+  snapshots: Snapshot[];
 }
 
 const initialDb: DatabaseSchema = {
@@ -68,7 +70,8 @@ const initialDb: DatabaseSchema = {
   notifications: [],
   activityLogs: [],
   emailVerifications: [],
-  feedbacks: []
+  feedbacks: [],
+  snapshots: []
 };
 
 // Encryption secret - derived from env or static fallback for development
@@ -107,13 +110,25 @@ export function decrypt(encryptedText: string): string {
     }
     const iv = Buffer.from(parts[0], "hex");
     const encrypted = parts[1];
-    const key = getEncryptionKey();
-    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+
+    // Try primary key first
+    try {
+      const key = getEncryptionKey();
+      const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } catch (primaryError) {
+      // If primary key failed, try the static development fallback key
+      const fallbackSecret = "dev-vault-secret-key-super-secure-32-chars";
+      const fallbackKey = crypto.createHash("sha256").update(fallbackSecret).digest();
+      const decipher = crypto.createDecipheriv("aes-256-cbc", fallbackKey, iv);
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    }
   } catch (error) {
-    console.error("Decryption failed:", error);
+    // Return warning fallback but do not print a full stack trace to avoid spamming the console
     return "******** [Decryption Failed - Check ENCRYPTION_KEY] *******";
   }
 }
@@ -388,7 +403,19 @@ class DatabaseManager {
         message TEXT NOT NULL,
         rating INTEGER,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );`
+      );`,
+
+      // 16. Snapshots
+      `CREATE TABLE IF NOT EXISTS snapshots (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        resource_id TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        data TEXT NOT NULL,
+        metadata JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_snapshots_resource ON snapshots (resource_id, resource_type);`
     ];
 
     for (const query of queries) {
@@ -502,6 +529,26 @@ class DatabaseManager {
     db.users.push(user);
     this.writeJson();
     return user;
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<boolean> {
+    const updatedAt = new Date().toISOString();
+    if (this.usePostgres) {
+      await this.pool!.query(
+        "UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3",
+        [passwordHash, updatedAt, userId]
+      );
+      return true;
+    }
+    const db = this.readJson();
+    const idx = db.users.findIndex((u) => u.id === userId);
+    if (idx !== -1) {
+      db.users[idx].passwordHash = passwordHash;
+      db.users[idx].updatedAt = updatedAt;
+      this.writeJson();
+      return true;
+    }
+    return false;
   }
 
   // --- Projects CRUD ---
@@ -1265,6 +1312,7 @@ class DatabaseManager {
       const activityLogs = await this.pool!.query("SELECT * FROM activity_logs");
       const emailVerifications = await this.pool!.query("SELECT * FROM email_verification");
       const feedbacks = await this.pool!.query("SELECT * FROM feedbacks");
+      const snapshots = await this.pool!.query("SELECT * FROM snapshots");
 
       return {
         users: users.rows.map(toCamel),
@@ -1281,13 +1329,15 @@ class DatabaseManager {
         notifications: notifications.rows.map(toCamel),
         activityLogs: activityLogs.rows.map(toCamel),
         emailVerifications: emailVerifications.rows.map(toCamel),
-        feedbacks: feedbacks.rows.map(toCamel)
+        feedbacks: feedbacks.rows.map(toCamel),
+        snapshots: snapshots.rows.map(toCamel)
       };
     }
     const raw = this.readJson();
     return {
       ...raw,
-      emailVerifications: raw.emailVerifications || []
+      emailVerifications: raw.emailVerifications || [],
+      snapshots: raw.snapshots || []
     };
   }
 
@@ -1309,6 +1359,7 @@ class DatabaseManager {
       if (newData.activityLogs) db.activityLogs = newData.activityLogs;
       if (newData.emailVerifications) db.emailVerifications = newData.emailVerifications;
       if (newData.feedbacks) db.feedbacks = newData.feedbacks;
+      if (newData.snapshots) db.snapshots = newData.snapshots;
       this.writeJson();
       return;
     }
@@ -1320,6 +1371,7 @@ class DatabaseManager {
       // Delete references first, then parent tables
       await client.query("DELETE FROM email_verification");
       await client.query("DELETE FROM feedbacks");
+      await client.query("DELETE FROM snapshots");
       await client.query("DELETE FROM notifications");
       await client.query("DELETE FROM activity_logs");
       await client.query("DELETE FROM invitations");
@@ -1570,6 +1622,16 @@ class DatabaseManager {
           await client.query(
             "INSERT INTO feedbacks (id, user_id, email, name, message, rating, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             [f.id, f.userId || null, f.email, f.name, f.message, f.rating || null, f.createdAt]
+          );
+        }
+      }
+
+      // Insert Snapshots
+      if (Array.isArray(newData.snapshots)) {
+        for (const s of newData.snapshots) {
+          await client.query(
+            "INSERT INTO snapshots (id, user_id, resource_id, resource_type, data, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [s.id, s.userId, s.resourceId, s.resourceType, s.data, s.metadata || "", s.createdAt]
           );
         }
       }
@@ -2060,6 +2122,93 @@ class DatabaseManager {
       this.writeJson();
       return feedback;
     }
+  }
+
+  async createSnapshot(snapshot: Snapshot): Promise<Snapshot> {
+    if (this.usePostgres && this.pool) {
+      await this.pool.query(
+        `INSERT INTO snapshots (id, user_id, resource_id, resource_type, data, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          snapshot.id,
+          snapshot.userId,
+          snapshot.resourceId,
+          snapshot.resourceType,
+          snapshot.data,
+          JSON.stringify(snapshot.metadata),
+          snapshot.createdAt
+        ]
+      );
+      return snapshot;
+    } else {
+      const db = this.readJson();
+      if (!db.snapshots) db.snapshots = [];
+      db.snapshots.push(snapshot);
+      this.writeJson();
+      return snapshot;
+    }
+  }
+
+  async getSnapshots(userId: string, resourceId: string): Promise<Snapshot[]> {
+    if (this.usePostgres && this.pool) {
+      const res = await this.pool.query(
+        "SELECT * FROM snapshots WHERE user_id = $1 AND resource_id = $2 ORDER BY created_at DESC",
+        [userId, resourceId]
+      );
+      return res.rows.map((row: any) => {
+        const item = toCamel(row);
+        if (item.metadata && typeof item.metadata === "string") {
+          try {
+            item.metadata = JSON.parse(item.metadata);
+          } catch (e) {
+            // fallback
+          }
+        }
+        return item;
+      });
+    }
+    const db = this.readJson();
+    db.snapshots = db.snapshots || [];
+    return db.snapshots
+      .filter((s) => s.userId === userId && s.resourceId === resourceId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async deleteSnapshot(snapshotId: string, userId: string): Promise<boolean> {
+    if (this.usePostgres && this.pool) {
+      const res = await this.pool.query(
+        "DELETE FROM snapshots WHERE id = $1 AND user_id = $2",
+        [snapshotId, userId]
+      );
+      return (res.rowCount ?? 0) > 0;
+    }
+    const db = this.readJson();
+    db.snapshots = db.snapshots || [];
+    const len = db.snapshots.length;
+    db.snapshots = db.snapshots.filter((s) => !(s.id === snapshotId && s.userId === userId));
+    const success = db.snapshots.length < len;
+    if (success) this.writeJson();
+    return success;
+  }
+
+  async getSnapshotById(id: string, userId: string): Promise<Snapshot | undefined> {
+    if (this.usePostgres && this.pool) {
+      const res = await this.pool.query(
+        "SELECT * FROM snapshots WHERE id = $1 AND user_id = $2",
+        [id, userId]
+      );
+      if (res.rows.length === 0) return undefined;
+      const item = toCamel(res.rows[0]);
+      if (item.metadata && typeof item.metadata === "string") {
+        try {
+          item.metadata = JSON.parse(item.metadata);
+        } catch (e) {}
+      }
+      return item;
+    }
+    const db = this.readJson();
+    db.snapshots = db.snapshots || [];
+    return db.snapshots.find((s) => s.id === id && s.userId === userId);
   }
 }
 

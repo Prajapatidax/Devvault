@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input, Modal, Badge, TextArea } from "./UI";
-import { Plus, Search, Folder, Code2, Copy, Trash2, Edit, Star, X, Tag } from "lucide-react";
+import { Plus, Search, Folder, Code2, Copy, Trash2, Edit, Star, X, Tag, History } from "lucide-react";
 import { Snippet } from "../types";
+import { TimeMachinePanel } from "./TimeMachine";
 
 export const SnippetManager: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -21,6 +22,7 @@ export const SnippetManager: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+  const [activeHistorySnippetId, setActiveHistorySnippetId] = useState<string | null>(null);
   
   // Form fields
   const [title, setTitle] = useState("");
@@ -50,6 +52,32 @@ export const SnippetManager: React.FC = () => {
   useEffect(() => {
     fetchSnippets();
   }, []);
+
+  useEffect(() => {
+    const handleSelectEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const snippetId = customEvent.detail?.id;
+      if (snippetId && snippets.length > 0) {
+        const found = snippets.find(s => s.id === snippetId);
+        if (found) {
+          setSearch(found.title);
+        }
+      }
+    };
+    window.addEventListener("devvault_select_snippets", handleSelectEvent);
+    return () => window.removeEventListener("devvault_select_snippets", handleSelectEvent);
+  }, [snippets]);
+
+  useEffect(() => {
+    const snippetId = localStorage.getItem("devvault_selected_snippets_id");
+    if (snippetId && snippets.length > 0) {
+      const found = snippets.find(s => s.id === snippetId);
+      if (found) {
+        setSearch(found.title);
+        localStorage.removeItem("devvault_selected_snippets_id");
+      }
+    }
+  }, [snippets]);
 
   const handleOpenCreateModal = () => {
     setEditingSnippet(null);
@@ -288,6 +316,17 @@ export const SnippetManager: React.FC = () => {
                     >
                       <Star className={`h-4 w-4 ${s.isFavorite ? "text-amber-500 fill-amber-500" : ""}`} />
                     </button>
+                    <button
+                      onClick={() => setActiveHistorySnippetId(activeHistorySnippetId === s.id ? null : s.id)}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        activeHistorySnippetId === s.id
+                          ? "bg-orange-500/10 text-orange-500"
+                          : "text-zinc-400 hover:text-amber-500"
+                      }`}
+                      title="Version History (Time Machine)"
+                    >
+                      <History className="h-4 w-4" />
+                    </button>
                     <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(s)} className="p-1.5">
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
@@ -311,6 +350,41 @@ export const SnippetManager: React.FC = () => {
                   </div>
                   <pre className="p-4 overflow-x-auto max-h-72 select-text">{s.code}</pre>
                 </div>
+
+                {/* Inline Time Machine Revision Log */}
+                {activeHistorySnippetId === s.id && (
+                  <div className="border-t border-zinc-200 dark:border-zinc-850 pt-3 mt-2 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-bold text-zinc-450 dark:text-zinc-500 font-mono tracking-wider uppercase">
+                        Snippet Version Logs
+                      </span>
+                      <button
+                        onClick={() => setActiveHistorySnippetId(null)}
+                        className="text-[9px] font-bold text-zinc-450 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-mono cursor-pointer"
+                      >
+                        CLOSE HISTORY
+                      </button>
+                    </div>
+                    <div className="h-64 border border-zinc-205 dark:border-zinc-850 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 select-none">
+                      <TimeMachinePanel
+                        resourceId={s.id}
+                        resourceType="snippet"
+                        currentResourceData={{
+                          title: s.title,
+                          code: s.code,
+                          language: s.language,
+                          folder: s.folder,
+                          tags: s.tags
+                        }}
+                        onRestoreSuccess={() => {
+                          fetchSnippets();
+                          setActiveHistorySnippetId(null);
+                          toast("Snippet restored to selected historical revision!", "success");
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

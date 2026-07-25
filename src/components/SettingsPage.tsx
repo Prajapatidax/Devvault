@@ -7,15 +7,49 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast, Button, Input } from "./UI";
 import { KeyRound, Download, Upload, ShieldCheck, Moon, Sun, Monitor, ShieldAlert, Github } from "lucide-react";
+import { scanTextContent, isWhitelisted, ScanResult } from "../utils/leakScanner";
+import { LeakModal } from "./LeakModal";
 
 interface SettingsPageProps {
   theme: "light" | "dark" | "system";
   setTheme: (t: "light" | "dark" | "system") => void;
+  themeScheme: string;
+  setThemeScheme: (s: string) => void;
+  layoutMode: "compact" | "comfortable" | "wide";
+  setLayoutMode: (m: "compact" | "comfortable" | "wide") => void;
+  alwaysOnTop: boolean;
+  setAlwaysOnTop: (b: boolean) => void;
+  borderless: boolean;
+  setBorderless: (b: boolean) => void;
+  nativeTitleBar: boolean;
+  setNativeTitleBar: (b: boolean) => void;
+  transparent: boolean;
+  setTransparent: (b: boolean) => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({
+  theme,
+  setTheme,
+  themeScheme,
+  setThemeScheme,
+  layoutMode,
+  setLayoutMode,
+  alwaysOnTop,
+  setAlwaysOnTop,
+  borderless,
+  setBorderless,
+  nativeTitleBar,
+  setNativeTitleBar,
+  transparent,
+  setTransparent
+}) => {
   const { apiFetch, logout, user } = useAuth();
   const { toast } = useToast();
+
+  // Secret Leak Detector State
+  const [showLeakModal, setShowLeakModal] = useState(false);
+  const [detectedLeaks, setDetectedLeaks] = useState<ScanResult[]>([]);
+  const [pendingExportData, setPendingExportData] = useState<any>(null);
 
   // Change Password State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -121,16 +155,21 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
       const res = await apiFetch("/api/settings/export");
       if (res.ok) {
         const data = await res.json();
-        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-          JSON.stringify(data, null, 2)
-        )}`;
-        const downloadAnchor = document.createElement("a");
-        downloadAnchor.setAttribute("href", jsonString);
-        downloadAnchor.setAttribute("download", `devvault-backup-${Date.now()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        toast("Backup downloaded successfully!", "success");
+        
+        // Scan serialized backup string for credentials
+        const serialized = JSON.stringify(data, null, 2);
+        const leaks = scanTextContent(serialized);
+        
+        // Filter out whitelisted leaks
+        const activeLeaks = leaks.filter((l) => !isWhitelisted(l.matchedText));
+
+        if (activeLeaks.length > 0) {
+          setDetectedLeaks(activeLeaks);
+          setPendingExportData(data);
+          setShowLeakModal(true);
+        } else {
+          triggerDownload(data);
+        }
       } else {
         toast("Export failed", "error");
       }
@@ -138,6 +177,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
       console.error(err);
       toast("Export failed", "error");
     }
+  };
+
+  const triggerDownload = (data: any, mask = false) => {
+    let finalData = data;
+    if (mask) {
+      const serialized = JSON.stringify(data, null, 2);
+      let maskedString = serialized;
+
+      detectedLeaks.forEach((leak) => {
+        const escaped = leak.matchedText.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const re = new RegExp(escaped, "g");
+        maskedString = maskedString.replace(re, "[MASKED_BY_DETECTOR]");
+      });
+
+      try {
+        finalData = JSON.parse(maskedString);
+      } catch (e) {
+        // fallback
+      }
+    }
+
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(finalData, null, 2)
+    )}`;
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", jsonString);
+    downloadAnchor.setAttribute("download", `devvault-backup-${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast(
+      mask
+        ? "Backup (MASKED) downloaded successfully!"
+        : "Backup downloaded successfully!",
+      "success"
+    );
+
+    // reset export states
+    setPendingExportData(null);
+    setDetectedLeaks([]);
   };
 
   const handleImportBackup = async (e: React.FormEvent) => {
@@ -192,46 +271,156 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
         {/* Left Column: Theme & Credentials */}
         <div className="flex flex-col gap-6">
-          {/* Theme Switcher card */}
-          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/20 backdrop-blur-sm shadow-sm flex flex-col gap-4">
+          {/* Workspace Personalization & Warm Themes */}
+          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/20 backdrop-blur-sm shadow-sm flex flex-col gap-4.5">
             <div>
-              <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase">Visual Theme</h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Choose layout coloring preference.</p>
+              <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 font-mono tracking-wider uppercase flex items-center gap-1.5">
+                <Sun className="h-4 w-4 text-orange-500" /> Workspace Settings & Themes
+              </h3>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Customize layouts, color palettes, and window behavior characteristics.</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
-              <button
-                onClick={() => setTheme("light")}
-                className={`p-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-2 ${
-                  theme === "light"
-                    ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
-                    : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
-                }`}
-              >
-                <Sun className="h-4.5 w-4.5" /> Light Mode
-              </button>
+            {/* 1. Theme mode */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-zinc-400 font-mono">COLOR MODE</span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                    theme === "light"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <Sun className="h-3.5 w-3.5" /> Light
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                    theme === "dark"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <Moon className="h-3.5 w-3.5" /> Dark
+                </button>
+                <button
+                  onClick={() => setTheme("system")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                    theme === "system"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-555 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <Monitor className="h-3.5 w-3.5" /> System
+                </button>
+              </div>
+            </div>
 
-              <button
-                onClick={() => setTheme("dark")}
-                className={`p-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-2 ${
-                  theme === "dark"
-                    ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
-                    : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
-                }`}
+            {/* 2. Color Scheme overrides */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-zinc-400 font-mono">COLOR PALETTES (WARM THEMES)</span>
+              <select
+                value={themeScheme}
+                onChange={(e) => setThemeScheme(e.target.value)}
+                className="w-full bg-white dark:bg-zinc-955/60 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-800 dark:text-zinc-100 p-2 outline-none focus:border-indigo-500/50"
               >
-                <Moon className="h-4.5 w-4.5" /> Dark Mode
-              </button>
+                <option value="default">Default Warm Amber</option>
+                <option value="nord">Nord Frost (Polar Ice)</option>
+                <option value="tokyo-night">Tokyo Night (Deep Neon)</option>
+                <option value="catppuccin">Catppuccin Mocha (Mauve)</option>
+                <option value="dracula">Dracula (Vampire Purple)</option>
+                <option value="one-dark">One Dark (Hacker Slate)</option>
+                <option value="solarized">Solarized Dark (Cyan Green)</option>
+                <option value="github-dark">GitHub Dark (Clean Navy)</option>
+              </select>
+            </div>
 
-              <button
-                onClick={() => setTheme("system")}
-                className={`p-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-2 ${
-                  theme === "system"
-                    ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 shadow-sm"
-                    : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
-                }`}
-              >
-                <Monitor className="h-4.5 w-4.5" /> System
-              </button>
+            {/* 3. Sizing Sizing overrides */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-zinc-400 font-mono">WORKSPACE WIDTH / RATIO</span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setLayoutMode("compact")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-1 ${
+                    layoutMode === "compact"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 font-bold"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <span>Compact</span>
+                  <span className="text-[8px] text-zinc-400 font-normal">Tighter spacing</span>
+                </button>
+                <button
+                  onClick={() => setLayoutMode("comfortable")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-1 ${
+                    layoutMode === "comfortable"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 font-bold"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <span>Comfortable</span>
+                  <span className="text-[8px] text-zinc-400 font-normal">Standard grid</span>
+                </button>
+                <button
+                  onClick={() => setLayoutMode("wide")}
+                  className={`p-2 rounded-lg border text-xs font-semibold cursor-pointer transition-all flex flex-col items-center gap-1 ${
+                    layoutMode === "wide"
+                      ? "bg-white dark:bg-zinc-800 border-indigo-500 text-indigo-650 dark:text-indigo-400 font-bold"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-455 hover:bg-zinc-100 dark:hover:bg-zinc-900/30"
+                  }`}
+                >
+                  <span>Wide View</span>
+                  <span className="text-[8px] text-zinc-400 font-normal">100% width</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Window Behavior Toggles */}
+            <div className="flex flex-col gap-2 border-t border-zinc-200 dark:border-zinc-900 pt-3">
+              <span className="text-[10px] font-bold text-zinc-400 font-mono">SIMULATED WINDOW CORE PROPERTIES</span>
+              
+              <div className="flex flex-col gap-2.5">
+                <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                  <span className="text-zinc-650 dark:text-zinc-300 font-medium">Remove Borders (Borderless Simulation)</span>
+                  <input
+                    type="checkbox"
+                    checked={borderless}
+                    onChange={(e) => setBorderless(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                  <span className="text-zinc-650 dark:text-zinc-300 font-medium">Acrylic Window (Transparent Blur Panels)</span>
+                  <input
+                    type="checkbox"
+                    checked={transparent}
+                    onChange={(e) => setTransparent(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                  <span className="text-zinc-650 dark:text-zinc-300 font-medium">Enable Custom Header (Simulated Mac traffic dots)</span>
+                  <input
+                    type="checkbox"
+                    checked={!nativeTitleBar}
+                    onChange={(e) => setNativeTitleBar(!e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                  <span className="text-zinc-650 dark:text-zinc-300 font-medium">Pin Workspace (Always On Top indicator)</span>
+                  <input
+                    type="checkbox"
+                    checked={alwaysOnTop}
+                    onChange={(e) => setAlwaysOnTop(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -380,6 +569,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme, setTheme }) =
           </div>
         </div>
       </div>
+      <LeakModal
+        isOpen={showLeakModal}
+        onClose={() => setShowLeakModal(false)}
+        leaks={detectedLeaks}
+        onConfirmDownload={(mask) => triggerDownload(pendingExportData, mask)}
+      />
     </div>
   );
 };

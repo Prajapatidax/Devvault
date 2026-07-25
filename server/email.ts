@@ -6,12 +6,38 @@
 import { Resend } from "resend";
 
 // Retrieve configuration variables from environment
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const MAIL_FROM = process.env.MAIL_FROM || "DevVault <onboarding@resend.dev>";
 const APP_URL = process.env.APP_URL || "https://devvault.prajapatidax.co.in";
 
-// Initialize Resend SDK instance
-const resend = new Resend(RESEND_API_KEY);
+// Initialize Resend SDK instance lazily or fallback to offline mock console service
+let resendInstance: any = null;
+const resend = {
+  get emails() {
+    if (!resendInstance) {
+      const apiKey = process.env.RESEND_API_KEY || "";
+      if (!apiKey || apiKey.startsWith("re_123") || apiKey === "your_resend_api_key_here" || apiKey.includes("placeholder")) {
+        console.log("\n[Email] RESEND_API_KEY is missing or placeholder. Running in Mock Email mode.");
+        resendInstance = {
+          emails: {
+            send: async (payload: any) => {
+              console.log("\n============================================\n[MOCK EMAIL SENT]");
+              console.log(`From:    ${payload.from}`);
+              console.log(`To:      ${payload.to}`);
+              console.log(`Subject: ${payload.subject}`);
+              console.log("HTML Content:");
+              console.log(payload.html);
+              console.log("============================================\n");
+              return { data: { id: "mock_id_" + Math.random().toString(36).substr(2, 9) }, error: null };
+            }
+          }
+        };
+        return resendInstance.emails;
+      }
+      resendInstance = new Resend(apiKey);
+    }
+    return resendInstance.emails;
+  }
+};
 
 /**
  * Returns the dark theme HTML template wrapper
@@ -178,8 +204,9 @@ class EmailService {
         <a href="${resetLink}" style="background-color: #ff5c00; color: #ffffff; padding: 12px 24px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password Key</a>
       </div>
       
-      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">This link will expire in 1 hour. If you did not request a password reset, please ignore this email.</p>
-      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Team</p>
+      <p style="font-size: 14px; line-height: 20px; color: #ef4444; font-weight: 600; text-align: center; margin-top: 0; margin-bottom: 24px; background-color: #270909; border: 1px solid #7f1d1d; padding: 10px; border-radius: 6px;">⏱️ This security reset link expires in 10 minutes.</p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">If you did not request a password reset, please ignore this email.</p>
+      <p style="font-size: 14px; line-height: 20px; color: #a1a1aa; margin-top: 0; margin-bottom: 24px;">Regards,<br>DevVault Security Team</p>
     `;
 
     const html = getEmailWrapper(title, contentHtml);

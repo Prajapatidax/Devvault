@@ -25,6 +25,11 @@ import { SettingsPage } from "./components/SettingsPage";
 import { NotificationsPage } from "./components/NotificationsPage";
 import { LandingPage } from "./components/LandingPage";
 import { RoadmapPage } from "./components/RoadmapPage";
+import { SecurityScanner } from "./components/SecurityScanner";
+import { CommandPalette } from "./components/CommandPalette";
+import { ResetPasswordPage } from "./components/ResetPasswordPage";
+import { LegalPages } from "./components/LegalPages";
+import { syncSearchIndex } from "./utils/searchEngine";
 
 import {
   LayoutDashboard,
@@ -57,7 +62,8 @@ import {
   Bell,
   HelpCircle,
   Menu,
-  X
+  X,
+  ShieldAlert
 } from "lucide-react";
 
 // Types for navigation
@@ -75,7 +81,8 @@ type ActiveTab =
   | "docs"
   | "settings"
   | "notifications"
-  | "tour";
+  | "tour"
+  | "security";
 
 export function ArtificialLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -117,6 +124,155 @@ function DevVaultWorkspace({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // Layout and behavior states
+  const [themeScheme, setThemeScheme] = useState<string>(() => {
+    return localStorage.getItem("devvault_theme_scheme") || "default";
+  });
+  const [layoutMode, setLayoutMode] = useState<"compact" | "comfortable" | "wide">(() => {
+    return (localStorage.getItem("devvault_layout_mode") as any) || "comfortable";
+  });
+  const [focusMode, setFocusMode] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_focus_mode") === "true";
+  });
+  const [alwaysOnTop, setAlwaysOnTop] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_always_on_top") === "true";
+  });
+  const [borderless, setBorderless] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_borderless") === "true";
+  });
+  const [nativeTitleBar, setNativeTitleBar] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_native_titlebar") !== "false";
+  });
+  const [transparent, setTransparent] = useState<boolean>(() => {
+    return localStorage.getItem("devvault_transparent") === "true";
+  });
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    return Number(localStorage.getItem("devvault_sidebar_width")) || 240;
+  });
+
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Sync Search Index in Background on mount & activeTab changes
+  useEffect(() => {
+    syncSearchIndex(apiFetch);
+    const interval = setInterval(() => {
+      syncSearchIndex(apiFetch);
+    }, 300000);
+    return () => clearInterval(interval);
+  }, [apiFetch, activeTab]);
+
+  // Apply Theme scheme effect
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.className.split(" ").forEach((c) => {
+      if (c.startsWith("theme-")) root.classList.remove(c);
+    });
+    if (themeScheme !== "default") {
+      root.classList.add(`theme-${themeScheme}`);
+    }
+    localStorage.setItem("devvault_theme_scheme", themeScheme);
+  }, [themeScheme]);
+
+  // Apply layout compact mode to HTML
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (layoutMode === "compact") {
+      root.classList.add("layout-compact");
+    } else {
+      root.classList.remove("layout-compact");
+    }
+    localStorage.setItem("devvault_layout_mode", layoutMode);
+  }, [layoutMode]);
+
+  // Sync state modifications with localStorage
+  useEffect(() => {
+    localStorage.setItem("devvault_focus_mode", String(focusMode));
+  }, [focusMode]);
+  useEffect(() => {
+    localStorage.setItem("devvault_always_on_top", String(alwaysOnTop));
+  }, [alwaysOnTop]);
+  useEffect(() => {
+    localStorage.setItem("devvault_borderless", String(borderless));
+  }, [borderless]);
+  useEffect(() => {
+    localStorage.setItem("devvault_native_titlebar", String(nativeTitleBar));
+  }, [nativeTitleBar]);
+  useEffect(() => {
+    localStorage.setItem("devvault_transparent", String(transparent));
+  }, [transparent]);
+
+  // Sidebar drag handle resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.min(400, Math.max(0, startWidth + (moveEvent.clientX - startX)));
+      setSidebarWidth(newWidth);
+      localStorage.setItem("devvault_sidebar_width", String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Keyboard navigation shortcuts
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // Toggle Command Palette: Ctrl+K or Cmd+K (prevent browser search bar hijack)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && !e.altKey) {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+      // Toggle Focus Mode: Ctrl+Alt+F
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFocusMode((prev) => !prev);
+      }
+      // Toggle Sidebar collapse: Ctrl+Alt+B
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setSidebarWidth((prev) => (prev > 0 ? 0 : 240));
+      }
+      // Tab shortcuts: Ctrl+Alt + Letter
+      if (e.ctrlKey && e.altKey) {
+        let targetTab: ActiveTab | null = null;
+        const key = e.key.toLowerCase();
+        if (key === "d") targetTab = "dashboard";
+        else if (key === "p") targetTab = "projects";
+        else if (key === "s") targetTab = "secrets";
+        else if (key === "k") targetTab = "snippets";
+        else if (key === "n") targetTab = "notes";
+        else if (key === "g") targetTab = "github";
+        else if (key === "u") targetTab = "security";
+        else if (key === "o") targetTab = "settings";
+
+        if (targetTab) {
+          e.preventDefault();
+          setActiveTab(targetTab);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [focusMode]);
+
+  const handleCommandPaletteNavigate = (tab: string, resourceId?: string) => {
+    setActiveTab(tab as any);
+    if (resourceId) {
+      localStorage.setItem(`devvault_selected_${tab}_id`, resourceId);
+      window.dispatchEvent(
+        new CustomEvent(`devvault_select_${tab}`, { detail: { id: resourceId } })
+      );
+    }
+  };
 
   // Fetch initial dashboard stats and notifications from real Express backend
   const fetchStats = async () => {
@@ -178,27 +334,61 @@ function DevVaultWorkspace({
     { id: "deployments", label: "Deployment Manager", icon: <Cpu className="h-4 w-4" />, confirmed: true },
     { id: "docs", label: "Documentation Gen", icon: <BookOpen className="h-4 w-4" />, confirmed: true },
     { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, confirmed: true },
+    { id: "security", label: "Security Scanner", icon: <ShieldAlert className="h-4.5 w-4.5 text-red-500" />, confirmed: true },
     { id: "settings", label: "Settings", icon: <Settings className="h-4 w-4" />, confirmed: true },
     { id: "tour", label: "Platform Tour", icon: <HelpCircle className="h-4 w-4" />, confirmed: true },
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 p-0 md:p-3 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative">
+    <div className={`flex h-screen w-screen overflow-hidden bg-zinc-100/50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 antialiased selection:bg-orange-500/30 transition-colors duration-300 bg-gradient-to-br from-orange-50/20 to-amber-50/10 dark:from-zinc-950 dark:to-zinc-950 relative ${borderless ? "p-0" : "p-0 md:p-3"}`}>
       {/* Sunbeam gradient top-center */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[350px] bg-gradient-to-b from-orange-500/10 via-amber-400/5 to-transparent blur-[120px] rounded-full pointer-events-none z-0" />
 
       {/* Main outer border frame */}
-      <div className="flex-1 flex h-full w-full overflow-hidden border-0 md:border-[5px] border-brand-500 rounded-none md:rounded-[24px] bg-zinc-50 dark:bg-zinc-950 shadow-2xl relative z-10">
-        {/* Backdrop for mobile sidebar drawer */}
-        {mobileSidebarOpen && (
-          <div 
-            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs md:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
+      <div className={`flex-1 flex flex-col h-full w-full overflow-hidden relative z-10 shadow-2xl transition-all duration-300 ${borderless ? "border-0 rounded-none" : "border-0 md:border-[5px] border-brand-500 rounded-none md:rounded-[24px]"} ${transparent ? "bg-zinc-50/90 dark:bg-zinc-950/80 backdrop-blur-md" : "bg-zinc-50 dark:bg-zinc-950"}`}>
+        
+        {/* Simulated traffic-light Title Bar */}
+        {!nativeTitleBar && (
+          <div className="h-8 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-900 flex items-center justify-between px-4.5 select-none shrink-0 z-50 text-[11px] font-mono text-zinc-400">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e]" />
+              <div className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123]" />
+              <div className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29]" />
+            </div>
+            <div className="font-semibold text-zinc-650 dark:text-zinc-400">
+              DevVault - secure_workspace_beta_2
+            </div>
+            <div className="flex items-center gap-2">
+              {alwaysOnTop && (
+                <span className="text-[8px] bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded font-bold">
+                  ALWAYS ON TOP
+                </span>
+              )}
+              <div className="w-4 h-0.5 bg-zinc-400" />
+              <div className="w-3.5 h-3.5 border border-zinc-400 rounded-sm" />
+              <div className="text-xs">×</div>
+            </div>
+          </div>
         )}
 
-        {/* 1. SIDEBAR NAVIGATION */}
-        <aside className={`fixed md:static inset-y-0 left-0 z-45 w-64 bg-white/95 dark:bg-zinc-950/95 border-r border-zinc-200 dark:border-zinc-850 flex flex-col justify-between shrink-0 backdrop-blur-md transition-transform duration-300 select-none md:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Content Workspace Area wrapper */}
+        <div className="flex-1 flex flex-row overflow-hidden w-full h-full relative">
+          {/* Backdrop for mobile sidebar drawer */}
+          {mobileSidebarOpen && (
+            <div 
+              className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs md:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+          )}
+
+          {/* 1. SIDEBAR NAVIGATION */}
+          <aside
+            style={{
+              width: focusMode ? 0 : `${sidebarWidth}px`,
+              display: (focusMode || sidebarWidth === 0) ? "none" : "flex"
+            }}
+            className={`fixed md:static inset-y-0 left-0 z-45 bg-white/95 dark:bg-zinc-950/95 border-r border-zinc-200 dark:border-zinc-850 flex flex-col justify-between shrink-0 backdrop-blur-md transition-transform duration-300 select-none md:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          >
           <div className="flex flex-col overflow-hidden">
             {/* Sidebar Header / Brand */}
             <div className="flex items-center justify-between px-4.5 py-4.5 border-b border-zinc-200 dark:border-zinc-800/60">
@@ -275,13 +465,21 @@ function DevVaultWorkspace({
           </div>
         </aside>
 
+        {/* Resizable Sidebar Handle */}
+        {!focusMode && sidebarWidth > 0 && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="hidden md:block w-1 hover:w-1.5 bg-zinc-200/50 dark:bg-zinc-800 hover:bg-orange-500 dark:hover:bg-orange-500 cursor-col-resize select-none h-full transition-all shrink-0 z-20"
+          />
+        )}
+
         {/* 2. MAIN CONTENT STAGE */}
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-50/30 dark:bg-zinc-950/30 backdrop-blur-sm relative transition-colors duration-300">
           {/* Background glow */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none" />
 
           {/* Global Navbar */}
-          <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none">
+          <header className={`h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10 shrink-0 select-none ${focusMode ? "hidden" : ""}`}>
             <div className="flex items-center gap-2 md:gap-3">
               <button
                 onClick={() => setMobileSidebarOpen(true)}
@@ -318,7 +516,7 @@ function DevVaultWorkspace({
               {theme === "dark" ? <Sun className="h-4 w-4 text-brand-500" /> : <Moon className="h-4 w-4 text-brand-600" />}
             </button>
 
-            <Button size="sm" variant="ghost" onClick={() => toast("Quick search global filter integration coming in beta 2!", "info")}>
+            <Button size="sm" variant="ghost" onClick={() => setCommandPaletteOpen(true)} title="Search Workspace (Ctrl+K)">
               <Search className="h-4 w-4" />
             </Button>
           </div>
@@ -333,7 +531,7 @@ function DevVaultWorkspace({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2 }}
-              className="max-w-5xl mx-auto h-full"
+              className={layoutMode === "wide" ? "max-w-none w-full px-4 md:px-12 h-full" : "max-w-5xl mx-auto h-full"}
             >
               {activeTab === "dashboard" && (
                 <div className="flex flex-col gap-6.5">
@@ -502,14 +700,51 @@ function DevVaultWorkspace({
               {activeTab === "bugs" && <BugTracker />}
               {activeTab === "deployments" && <DeploymentManager />}
               {activeTab === "docs" && <DocumentationGen />}
+              {activeTab === "security" && <SecurityScanner />}
               {activeTab === "notifications" && <NotificationsPage onRefreshStats={fetchStats} />}
-              {activeTab === "settings" && <SettingsPage theme={theme} setTheme={setTheme} />}
+              {activeTab === "settings" && (
+                <SettingsPage
+                  theme={theme}
+                  setTheme={setTheme}
+                  themeScheme={themeScheme}
+                  setThemeScheme={setThemeScheme}
+                  layoutMode={layoutMode}
+                  setLayoutMode={setLayoutMode}
+                  alwaysOnTop={alwaysOnTop}
+                  setAlwaysOnTop={setAlwaysOnTop}
+                  borderless={borderless}
+                  setBorderless={setBorderless}
+                  nativeTitleBar={nativeTitleBar}
+                  setNativeTitleBar={setNativeTitleBar}
+                  transparent={transparent}
+                  setTransparent={setTransparent}
+                />
+              )}
               {activeTab === "tour" && <LandingPage onEnterApp={() => {}} isWorkspaceView={true} theme={theme} setTheme={setTheme} />}
             </motion.div>
           </AnimatePresence>
+          
+          {/* Focus Mode floating escape controls */}
+          {focusMode && (
+            <button
+              onClick={() => setFocusMode(false)}
+              className="fixed bottom-6 right-6 z-50 p-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg cursor-pointer flex items-center gap-1.5 text-xs font-semibold select-none transition-all hover:scale-105"
+              title="Exit Focus Mode (Ctrl+Alt+F)"
+            >
+              <X className="h-4 w-4" /> Exit Focus Mode
+            </button>
+          )}
         </div>
       </main>
-      </div> {/* extra wrapper end */}
+      </div> {/* Content Workspace Area wrapper close */}
+      </div> {/* Main outer border frame close */}
+      
+      {/* Command Palette Modal */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onNavigate={handleCommandPaletteNavigate}
+      />
     </div>
   );
 }
@@ -518,6 +753,15 @@ function MainWorkspace() {
   const { user, loading, verifyingEmail } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(false);
+  const [legalTab, setLegalTab] = useState<"terms" | "privacy" | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset_token") || params.get("token") || null;
+  });
+  const [resetEmail, setResetEmail] = useState<string | undefined>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("email") || undefined;
+  });
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
     return (localStorage.getItem("devvault_theme") as any) || "dark";
   });
@@ -546,6 +790,29 @@ function MainWorkspace() {
     );
   }
 
+  if (resetToken) {
+    return (
+      <ResetPasswordPage 
+        token={resetToken} 
+        email={resetEmail} 
+        onComplete={() => {
+          setResetToken(null);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setShowAuth(true);
+        }} 
+      />
+    );
+  }
+
+  if (legalTab) {
+    return (
+      <LegalPages 
+        initialTab={legalTab} 
+        onBack={() => setLegalTab(null)} 
+      />
+    );
+  }
+
   if (verifyingEmail) {
     return <VerifyEmailPage />;
   }
@@ -555,7 +822,12 @@ function MainWorkspace() {
   }
 
   if (showAuth) {
-    return <AuthPage onBackToLanding={() => setShowAuth(false)} />;
+    return (
+      <AuthPage 
+        onBackToLanding={() => setShowAuth(false)} 
+        onNavigateToLegal={(tab) => setLegalTab(tab)}
+      />
+    );
   }
 
   if (showRoadmap) {
@@ -566,6 +838,7 @@ function MainWorkspace() {
     <LandingPage 
       onEnterApp={() => setShowAuth(true)} 
       onNavigateToRoadmap={() => setShowRoadmap(true)} 
+      onNavigateToLegal={(tab) => setLegalTab(tab)}
       theme={theme} 
       setTheme={setTheme} 
     />
