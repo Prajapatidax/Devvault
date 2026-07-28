@@ -29,6 +29,9 @@ import { SecurityScanner } from "./components/SecurityScanner";
 import { CommandPalette } from "./components/CommandPalette";
 import { ResetPasswordPage } from "./components/ResetPasswordPage";
 import { LegalPages } from "./components/LegalPages";
+import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
+import { OfflineBanner } from "./components/OfflineBanner";
+import { registerServiceWorker } from "./registerServiceWorker";
 import { syncSearchIndex } from "./utils/searchEngine";
 
 import {
@@ -846,10 +849,16 @@ function MainWorkspace() {
 }
 
 export default function App() {
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
   return (
     <ToastProvider>
       <AuthProvider>
+        <OfflineBanner />
         <MainWorkspace />
+        <PWAInstallPrompt />
       </AuthProvider>
     </ToastProvider>
   );

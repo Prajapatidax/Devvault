@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevVault - Working Offline</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .glow-bg {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, rgba(255, 92, 0, 0.05) 50%, transparent 80%);
+      filter: blur(80px);
+      pointer-events: none;
+      border-radius: 50%;
+    }
+    .card {
+      background: rgba(24, 24, 27, 0.7);
+      border: 1px solid #27272a;
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(16px);
+      z-index: 10;
+      position: relative;
+    }
+    .icon-container {
+      width: 64px;
+      height: 64px;
+      background: rgba(79, 70, 229, 0.1);
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .icon-container svg {
+      width: 32px;
+      height: 32px;
+      fill: none;
+      stroke: #818cf8;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #fbbf24;
+      font-size: 11px;
+      font-family: monospace;
+      margin-bottom: 16px;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background-color: #fbbf24;
+      border-radius: 50%;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+    p {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .features {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #d4d4d8;
+      margin-bottom: 10px;
+    }
+    .feature-item:last-child {
+      margin-bottom: 0;
+    }
+    .feature-icon {
+      color: #10b981;
+      font-weight: bold;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px 20px;
+      background: #4f46e5;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+    }
+    .btn:hover {
+      background: #4338ca;
+    }
+    .footer-note {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #71717a;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <div class="card">
+    <div class="icon-container">
+      <svg viewBox="0 0 24 24">
+        <path d="M1 1l22 22"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+
+    <div class="badge">
+      <span class="badge-dot"></span>
+      <span>LOCAL-FIRST OFFLINE MODE</span>
+    </div>
+
+    <h1>DevVault Offline Workstation</h1>
+
+    <p>
+      You are currently disconnected from the internet. DevVault operates on a <strong>local-first zero-knowledge paradigm</strong>, keeping your encrypted database accessible offline.
+    </p>
+
+    <div class="features">
+      <div class="feature-item">
+        <span class="feature-icon">✓</span>
+        <span>AES-256 local encrypted storage active</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-icon">✓</span>
+        <span>Cached workstation app shell ready</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-icon">✓</span>
+        <span>Local edits & notes saved on device</span>
+      </div>
+    </div>
+
+    <button class="btn" onclick="window.location.reload()">
+      Reload & Reconnect
+    </button>
+
+    <div class="footer-note">
+      DevVault v1.1 • Local Database Secured
+    </div>
+  </div>
+</body>
+</html>
