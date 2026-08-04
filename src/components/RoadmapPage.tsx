@@ -25,7 +25,11 @@ import {
   ChevronRight,
   Calendar,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Layout,
+  Move,
+  Sliders,
+  Grid
 } from "lucide-react";
 import { Button, useToast } from "./UI";
 import { motion, AnimatePresence } from "motion/react";
@@ -154,6 +158,36 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
           title: "One-click Workspace Clone",
           desc: "Pack workspace config rules, secrets blueprint, notes, and boards into an encrypted archive for immediate staging.",
           icon: <Copy className="h-5 w-5 text-orange-500" />
+        }
+      ]
+    },
+    {
+      num: 4,
+      name: "Visual Site Customization",
+      status: "Planned",
+      date: "20 December 2026",
+      statusColor: "bg-purple-500/10 text-purple-650 dark:text-purple-400 border-purple-500/20",
+      description: "Complete visual freedom to reconfigure and personalize every block of your workspace.",
+      features: [
+        {
+          title: "Drag & Drop Customizer",
+          desc: "Now you can customize your site! Drag and drop any block or anything — now you can modify the site look however you want.",
+          icon: <Layout className="h-5 w-5 text-purple-500" />
+        },
+        {
+          title: "Flexible Layout Re-ordering",
+          desc: "Reorganize components, boards, notes, and tracker widgets with intuitive drag controls.",
+          icon: <Move className="h-5 w-5 text-purple-500" />
+        },
+        {
+          title: "Visual Block Stylist",
+          desc: "Modify colors, themes, borders, and visual block density with live interactive customization.",
+          icon: <Sliders className="h-5 w-5 text-purple-500" />
+        },
+        {
+          title: "Modular Layout Presets",
+          desc: "Save custom block layouts and switch visual arrangements across workspaces instantly.",
+          icon: <Grid className="h-5 w-5 text-purple-500" />
         }
       ]
     }
@@ -441,7 +475,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
             );
           })}
 
-          {/* Phase 4 & 5 Teaser Timeline Marker (Renumbered dynamically) */}
+          {/* Phase 5 Teaser Timeline Marker (Renumbered dynamically) */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -451,7 +485,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
           >
             {/* Timeline Marker */}
             <div className="h-9 w-9 md:h-[70px] md:w-[70px] rounded-2xl border shrink-0 flex items-center justify-center font-bold text-sm md:text-xl font-mono shadow-sm bg-zinc-100 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-850 text-zinc-400 dark:text-zinc-650">
-              0{wipeState === "collapsed" ? "3" : "04"}
+              0{wipeState === "collapsed" ? "4" : "05"}
             </div>
 
             {/* Content Box */}
@@ -459,7 +493,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-900 pb-3">
                 <div>
                   <h2 className="text-lg md:text-xl font-extrabold text-zinc-400 dark:text-zinc-550 flex items-center gap-2">
-                    Phase 4 & 5 Blueprint
+                    Phase 5 & Future Horizon
                     <span className="px-2 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-[9px] font-mono tracking-wider uppercase font-bold">
                       Teaser Coming Soon
                     </span>
@@ -470,7 +504,7 @@ export const RoadmapPage: React.FC<RoadmapPageProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 text-zinc-500 font-mono text-[10px] md:text-xs">
                   <Calendar className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Update List: 2 August 2026</span>
+                  <span>Tentative: January 2027</span>
                 </div>
               </div>
             </div>
